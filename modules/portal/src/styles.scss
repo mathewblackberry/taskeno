@@ -1,0 +1,28 @@
+/* You can add global styles to this file, and also import other style files */
+@use "@angular/material" as mat;
+@use 'm3-theme.scss';
+@include mat.core();
+
+//$theme: mat.define-theme((
+//  color: (
+//    theme-type: dark,
+//    primary: mat.$violet-palette,
+//  ),
+//  typography: (
+//    brand-family: 'Comic Sans',
+//    bold-weight: 900
+//  ),
+//  density: (
+//    scale: -1
+//  )
+//));
+
+
+
+html, body { height: 100%;
+  //@include mat.core-theme(m3-theme.$light-theme);
+  //@include mat.all-component-themes(m3-theme.$dark-theme)
+  //@include mat.button-theme(m3-theme.$light-theme);
+  //@include mat.tabs-theme(m3-theme.$dark-theme);
+}
+body { margin: 20px; font-family: Roboto, "Helvetica Neue", sans-serif; }

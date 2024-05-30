@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  aws
+
+  Sample SAM Template for aws
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+Parameters:
+  VpcId:
+    Description: Black Salt IT NMS VPC ID
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-021ef86252212fc01
+  SubnetTasKenoAPI:
+    Description: Tas Keno NMS Subnet
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-05b8af1c3f51c96bd
+  RouteTableTasKeno:
+    Description: Tas Keno Route Table
+    Type: String
+    Default: rtb-094154225a9592f6c
+Resources:
+
+  VPCEndpointTasKenoDynamodb:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref RouteTableTasKeno
+
+  VpcEndpointApiGateway:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+      VpcId: !Ref VpcId
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref SubnetTasKenoAPI
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref SecurityGroupAPIVPCEndpoint
+
+  SecurityGroupAPIVPCEndpoint:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTPS traffic to Private API
+      GroupName: API Gateway VPC Endpoint
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 172.27.251.10/32
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 172.27.247.0/25
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  DynamoDBAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: DynamoDBAccessPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:DescribeTable
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableTasKenoNMS}
+#            Condition:
+#              StringEquals:
+#                aws:SourceVpce: !Ref VpcId
+
+  RoleTasKenoAPI:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: TasKenoAPIAccessRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref DynamoDBAccessPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  FunctionTasKenoAPIProxy:
+    Type: AWS::Serverless::Function
+    Properties:
+      MemorySize: 512
+      CodeUri: assetmanager/
+      Handler: tenant.lambdaHandler
+      Runtime: nodejs20.x
+      FunctionName: TasKeno_APIProxy
+      Architectures:
+        - x86_64
+#      Layers:
+#        - !Ref NBScoreLayer
+      Environment:
+        Variables:
+          DYNAMODB_ASSOCIATION_TABLE: !Ref DynamoDBTableTasKenoNMS
+      Role: !GetAtt RoleTasKenoAPI.Arn
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "aws-sdk"
+        EntryPoints:
+          - tenant.ts
+
+  RestAPITasKeno:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: TasKeno_API
+      EndpointConfiguration:
+        Types:
+          - PRIVATE
+      Policy:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: execute-api:Invoke
+#            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPITasKeno}/*/*/*
+            Resource: 'execute-api/*'
+
+  APIGatewayResourceTasKeno:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPITasKeno
+      ParentId: !GetAtt
+        - RestAPITasKeno
+        - RootResourceId
+      PathPart: manager
+
+  APIGatewayResourceTasKenoProxy:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPITasKeno
+      ParentId: !Ref APIGatewayResourceTasKeno
+      PathPart: '{proxy+}'
+
+  APIGatewayMethodTasKenoProxyOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref APIGatewayResourceTasKenoProxy
+      RestApiId: !Ref RestAPITasKeno
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            "application/json": "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+      Integration:
+        Type: MOCK
+        IntegrationHttpMethod: ANY
+        RequestTemplates:
+          "application/json": "{ \"statusCode\": 200 }"
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,PUT,GET,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+            ResponseTemplates:
+              "application/json": ""
+
+  APIGatewayMethodTasKenoProxy:
+    Type: AWS::ApiGateway::Method
+    DependsOn: APIGatewayResourceTasKenoProxy
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !Ref APIGatewayResourceTasKenoProxy
+      RestApiId: !Ref RestAPITasKeno
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionTasKenoAPIProxy.Arn}/invocations
+          - LambdaArn: !GetAtt FunctionTasKenoAPIProxy.Arn
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              "application/json": ""
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  APIGatewayResponseDefault4xx:
+    Type: 'AWS::ApiGateway::GatewayResponse'
+    Properties:
+      ResponseType: DEFAULT_4XX
+      RestApiId: !Ref RestAPITasKeno
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Methods: "'OPTIONS,POST'"
+
+  APIGatewayResponseDefault5xx:
+    Type: 'AWS::ApiGateway::GatewayResponse'
+    Properties:
+      ResponseType: DEFAULT_5XX
+      RestApiId: !Ref RestAPITasKeno
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Methods: "'OPTIONS,POST'"
+
+
+#  NBAdminAssociationPPIdOptionsMethod:
+#    Type: AWS::ApiGateway::Method
+#    Properties:
+#      AuthorizationType: NONE
+#      HttpMethod: OPTIONS
+#      ResourceId: !Ref NBAdminAssociationPPIdResource
+#      RestApiId: !Ref NBAdminApi
+#      MethodResponses:
+#        - StatusCode: "200"
+#          ResponseModels:
+#            "application/json": "Empty"
+#          ResponseParameters:
+#            method.response.header.Access-Control-Allow-Origin: true
+#            method.response.header.Access-Control-Allow-Methods: true
+#            method.response.header.Access-Control-Allow-Headers: true
+#      Integration:
+#        Type: MOCK
+#        IntegrationHttpMethod: ANY
+#        RequestTemplates:
+#          "application/json": "{ \"statusCode\": 200 }"
+#        IntegrationResponses:
+#          - StatusCode: "200"
+#            ResponseParameters:
+#              method.response.header.Access-Control-Allow-Origin: "'*'"
+#              method.response.header.Access-Control-Allow-Methods: "'POST,PUT,GET,DELETE,OPTIONS'"
+#              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#            ResponseTemplates:
+#              "application/json": ""
+
+  APIGatewayDeploymentProd:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn: APIGatewayMethodTasKenoProxy  # Ensure the method is created before deploying
+    Properties:
+      RestApiId: !Ref RestAPITasKeno
+      Description: 'Deploying my API'
+
+  ApiGatewayStageProd:
+    Type: 'AWS::ApiGateway::Stage'
+    Properties:
+      StageName: 'prod'
+      Description: 'Production stage'
+      RestApiId: !Ref RestAPITasKeno
+      DeploymentId: !Ref APIGatewayDeploymentProd
+
+#  NBAdminCustomDomainMapping:
+#    DependsOn: NBAdminApiProdStage
+#    Type: 'AWS::ApiGateway::BasePathMapping'
+#    Properties:
+#      DomainName: !Ref NBScoreCustomDomain
+#      RestApiId: !Ref NBAdminApi
+#      BasePath: admin
+#      Stage: 'prod'
+#
+  LambdaPermissionTasKenoAPI:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionTasKenoAPIProxy.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join [
+        "", [
+          "arn:aws:execute-api:",
+          { "Ref": "AWS::Region" }, ":",
+          { "Ref": "AWS::AccountId" }, ":",
+          !Ref RestAPITasKeno, "/*/*/manager*"
+        ]
+      ]
+
+
+  DynamoDBTableTasKenoNMS:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TasKenoNMS
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: GSI
+          KeySchema:
+            - AttributeName: sk
+              KeyType: HASH
+            - AttributeName: pk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+#Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+#  HelloWorldApi:
+#    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+#    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+#  HelloWorldFunction:
+#    Description: "Hello World Lambda Function ARN"
+#    Value: !GetAtt HelloWorldFunction.Arn
+#  HelloWorldFunctionIamRole:
+#    Description: "Implicit IAM Role created for Hello World function"
+#    Value: !GetAtt HelloWorldFunctionRole.Arn
