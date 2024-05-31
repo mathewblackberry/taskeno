@@ -26,8 +26,8 @@ export class Asset {
   hostname: string;
   terminals: number;
   lanSubnets: SubnetDetails[];
-  wanSubnet: IPv4CidrRange[];
-  loopback: IPv4CidrRange[];
+  wanSubnets: IPv4CidrRange[];
+  loopbacks: IPv4CidrRange[];
   carriageType: string;
   carriageFNN: string;
   carriagePort: string;
