@@ -19,6 +19,7 @@ export class Site {
   postcode: string;
   phone: string;
   email: string;
+  active: boolean;
 }
 
 export class Asset {
@@ -34,6 +35,7 @@ export class Asset {
   FNN: string;
   POI: string;
   routerDetails?: RouterDetails;
+  active: boolean;
 }
 
 export class SubnetDetails {
@@ -51,14 +53,20 @@ export class Host {
 }
 
 export class RouterDetails {
-  defaultPassword: string;
-  password: string;
+  defaultCredentials: Credential;
+  credentials: Credential[];
   serialNumber: string;
-  username: string;
   model: string;
   manufacturer: string;
   mobileDetails?: MobileDetails;
 }
+
+export class Credential {
+  username: string;
+  password?: string;
+  purpose?: string
+}
+
 
 export class MobileDetails {
   username?: string;
@@ -70,4 +78,15 @@ export class MobileDetails {
   simSerial: string;
   mobileNumber: string;
   PUK: string;
+}
+
+
+export type AssetDataElement = {
+  label: string,
+  value: string | undefined,
+  field: string,
+  required?: boolean,
+  min?: number,
+  max?: number,
+  regexp?: string | RegExp
 }

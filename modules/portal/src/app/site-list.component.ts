@@ -1,207 +1,339 @@
-// src/app/site-list/site-list.component.ts
 import {CommonModule} from '@angular/common';
-import {Component, OnInit} from '@angular/core';
-import {FormControl, ReactiveFormsModule} from '@angular/forms';
+import {Component, inject, OnInit} from '@angular/core';
+import {FormArray, FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatButtonModule} from '@angular/material/button';
-import {MatCard, MatCardModule} from '@angular/material/card';
+import {MatCardModule} from '@angular/material/card';
+import {MatExpansionModule} from "@angular/material/expansion";
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatListModule} from '@angular/material/list';
+import {MatSelectChange, MatSelectModule} from '@angular/material/select';
+import {MatSlideToggleModule} from '@angular/material/slide-toggle';
+import {MatTableModule} from "@angular/material/table";
 import {MatTabsModule} from '@angular/material/tabs';
+import {MatToolbarModule} from '@angular/material/toolbar';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {AuthenticatorService} from '@aws-amplify/ui-angular';
+import {IPv4CidrRange} from 'ip-num';
 import {Observable} from 'rxjs';
 import {map, startWith} from 'rxjs/operators';
-import {Asset, Site} from './models/model';
+import {ChartComponent} from './chart.component';
+import {CodeDisplayComponent} from './code-display.component';
+import {AddresssComponent} from './mikrotik/address.component';
+import {ArpsComponent} from './mikrotik/arp.component';
+import {FirewallsComponent} from './mikrotik/firewall.component';
+import {InterfacesComponent} from './mikrotik/interface.component';
+import {IPAddressesComponent} from './mikrotik/ipaddress.component';
+import {RoutetableComponent} from './mikrotik/routetable.component';
+import {Asset, Host, MobileDetails, RouterDetails, Site, SubnetDetails, Credential} from './models/model';
+import {PasswordFieldComponent} from './password-field.component';
 import {SiteAssetService} from './services/site-asset-service';
-import {MatTableModule} from "@angular/material/table";
-import {MatExpansionModule} from "@angular/material/expansion";
-
+import {TileComponent} from './tile.component';
+import {LanSubnetsComponent} from './view/lan-subnets.component';
+import {LiveToolsComponent} from './view/live-tools.component';
+import {MobileDetailsComponent} from './view/mobile-details.component';
+import {RouterDetailsComponent} from './view/router-details.component';
+import {RouterGeneralComponent} from './view/router-general.component';
 
 @Component({
   selector: 'app-site-list',
-  template: `
-    <!-- src/app/site-list/site-list.component.html -->
-    <div class="site-list">
-      <!--      <button mat-fab><mat-icon>add</mat-icon></button>-->
-      <mat-form-field class="example-full-width" appearance="outline" style="width: 100%">
-        <input type="text" matInput [formControl]="siteControl" [matAutocomplete]="auto" placeholder="Search Sites"
-               [attr.autocomplete]="'off'"
-               [attr.autocorrect]="'off'"
-               [attr.autocapitalize]="'off'"
-               spellcheck="false" data-lpignore="true">
-        <mat-autocomplete #auto="matAutocomplete" (optionSelected)="onSelectSite($event.option.value)" [displayWith]="displaySite">
-          <mat-option *ngFor="let site of filteredSites | async" [value]="site">
-            {{ site.name }}
-          </mat-option>
-        </mat-autocomplete>
-      </mat-form-field>
-
-      <mat-accordion class="headers-align" multi>
-        @for (asset of assets; track asset; let i = $index) {
-          <mat-expansion-panel (afterExpand)="onSelectAsset(asset)" [expanded]="isFirstPanel(i,asset)">
-            <mat-expansion-panel-header>
-              <mat-panel-title>
-                {{ asset.hostname }}
-              </mat-panel-title>
-              <mat-panel-description>
-                {{ asset.loopbacks[0] }}
-                <mat-icon>router</mat-icon>
-              </mat-panel-description>
-            </mat-expansion-panel-header>
-            @if (selectedAsset) {
-              <mat-tab-group>
-                <mat-tab label="General">
-                  <div>
-                    <p><strong>ID:</strong> {{ selectedAsset.id }}</p>
-                    <p><strong>Host Name:</strong> {{ selectedAsset.hostname }}</p>
-                    <p><strong>Terminals:</strong> {{ selectedAsset.terminals }}</p>
-                  </div>
-                </mat-tab>
-                <mat-tab label="LAN Subnets" *ngIf="selectedAsset.lanSubnets">
-                  <mat-accordion class="headers-align" multi>
-                    @for (subnet of selectedAsset.lanSubnets; track subnet; let first = $first) {
-                      <mat-expansion-panel (afterExpand)="onSelectAsset(asset)" [expanded]="$first">
-                        <mat-expansion-panel-header>
-                          <mat-panel-title>
-                            {{ subnet.subnet }}
-                          </mat-panel-title>
-                          <mat-panel-description>
-                            &nbsp;
-                            <mat-icon>menu_book</mat-icon>
-                          </mat-panel-description>
-                        </mat-expansion-panel-header>
-                        <table mat-table [dataSource]="subnet.hosts" class="mat-table">
-                          <ng-container matColumnDef="ip" class="ip-column">
-                            <th mat-header-cell *matHeaderCellDef class="ip-column"> IP</th>
-                            <td mat-cell *matCellDef="let element"> {{ element.ip }}</td>
-                          </ng-container>
-                          <ng-container matColumnDef="name">
-                            <th mat-header-cell *matHeaderCellDef> Name</th>
-                            <td mat-cell *matCellDef="let element"> {{ element.name }}</td>
-                          </ng-container>
-                          <ng-container matColumnDef="active">
-                            <th mat-header-cell *matHeaderCellDef class="active-column"> Active</th>
-                            <td mat-cell *matCellDef="let element" class="active-column">
-                              @if (element.active) {
-                                <mat-icon>check</mat-icon>
-                              } @else {
-                                <mat-icon>close</mat-icon>
-                              }</td>
-                          </ng-container>
-                          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="{'network-row': row.network || row.broadcast}"></tr>
-                        </table>
-                      </mat-expansion-panel>
-                    }
-                  </mat-accordion>
-
-                </mat-tab>
-                <mat-tab label="Router Details" *ngIf="selectedAsset.routerDetails">
-                  <div>
-                    <p><strong>Username:</strong> {{ selectedAsset.routerDetails.username }}</p>
-                    <p><strong>Password:</strong> <span class="password">{{ selectedAsset.routerDetails.password }}</span></p>
-                    <p><strong>Manufacturer:</strong> {{ selectedAsset.routerDetails.manufacturer }}</p>
-                    <p><strong>Model:</strong> {{ selectedAsset.routerDetails.model }}</p>
-                    <p><strong>Serial Number:</strong> {{ selectedAsset.routerDetails.serialNumber }}</p>
-                    <p><strong>Default Password:</strong> <span class="password">{{ selectedAsset.routerDetails.defaultPassword }}</span></p>
-                  </div>
-                </mat-tab>
-                <mat-tab label="Mobile Details" *ngIf="selectedAsset.routerDetails?.mobileDetails">
-                  <div>
-                    <p><strong>Username:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.username }}</p>
-                    <p><strong>Password:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.password }}</p>
-                    <p><strong>First Name:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.firstName }}</p>
-                    <p><strong>Last Name:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.lastName }}</p>
-                    <p><strong>SIM Serial:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.simSerial }}</p>
-                    <p><strong>Mobile Number:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.mobileNumber }}</p>
-                    <p><strong>PUK:</strong> {{ selectedAsset.routerDetails?.mobileDetails?.PUK }}</p>
-                  </div>
-                </mat-tab>
-              </mat-tab-group>
-            }
-          </mat-expansion-panel>
-        }
-      </mat-accordion>
-    </div>
-
-
-  `,
-  styles: [`
-    .active-column {
-      width: 60px;
-      text-align: center;
-    }
-
-    .ip-column {
-      width: 200px;
-    }
-
-    .network-row {
-      font-weight: bold;
-      background-color: #f0f0f0;
-    }
-
-    .password {
-      font-family: "Fira Code Light","Fira Code", monospace;
-      font-size: 120%;
-    }
-    .headers-align .mat-expansion-panel-header-description {
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .headers-align .mat-mdc-form-field + .mat-mdc-form-field {
-      margin-left: 8px;
-    }
-  `],
-  imports: [MatListModule, CommonModule, MatTabsModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule, MatTableModule, MatExpansionModule],
+  templateUrl: './site-list.component.html',
+  styleUrl: './site-list.component.scss',
+  imports: [MatListModule, CommonModule, MatTabsModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, FormsModule, MatCardModule, MatButtonModule,
+    MatIconModule, MatTableModule, MatExpansionModule, CodeDisplayComponent, MatSelectModule, MatToolbarModule, PasswordFieldComponent, RoutetableComponent, MatTooltipModule,
+    InterfacesComponent, IPAddressesComponent, ArpsComponent, FirewallsComponent, AddresssComponent, ChartComponent, TileComponent, RouterDetailsComponent, MobileDetailsComponent, LanSubnetsComponent, RouterGeneralComponent, LiveToolsComponent, MatSlideToggleModule],
   standalone: true
 })
 export class SiteListComponent implements OnInit {
-  siteControl = new FormControl();
+  assetForm: FormGroup;
+  siteControl: FormControl<any> = new FormControl();
   sites: Site[] = [];
+  fSites: Site[] = [];
   filteredSites: Observable<Site[]>;
   selectedSite: Site | null = null;
   assets: Asset[] = [];
   selectedAsset: Asset | null = null;
-  displayedColumns: string[] = ['ip', 'name', 'active'];
+  nextSiteName: string = '';
+  previousSiteName: string = '';
+  authenticator: AuthenticatorService = inject(AuthenticatorService);
+  showActiveOnly = true;
 
-  constructor(private siteAssetService: SiteAssetService) {
-    this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => this._filterSites(value)));
+  constructor(private siteAssetService: SiteAssetService, private fb: FormBuilder) {
+    this.assetForm = this.createAssetForm();
+  }
+
+  get mobileDetailsForm(): FormGroup {
+    return this.assetForm.get('routerDetails.mobileDetails') as FormGroup;
   }
 
   ngOnInit(): void {
-    this.siteAssetService.getSites().subscribe(sites => {
-      this.sites = sites;
-      this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => typeof value === 'string' ? value : value?.name), map(name => name ? this._filterSites(name) : this.sites.slice()));
+    setTimeout(() => {
+      this.siteAssetService.getSites().subscribe(sites => {
+        sites.forEach(site => {
+          if (site.name == undefined) console.log(site);
+        });
+        this.sites = sites.sort((a: Site, b: Site) => a.name.localeCompare(b.name));
+        this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => typeof value === 'string' ? value : value?.name), map(name => name ? this._filterSites(name) : this.sites.slice()));
+        this.updateFilteredSites();
+        // if(sites.length > 0) {
+        //   this.onSelectSite(sites[0]);
+        //   this.siteControl.setValue(sites[0], { emitEvent: false });
+        // }
+      });
     });
+
+    // Initialize the form group with the structure of selectedAsset.routerDetails.mobileDetails
+
+
   }
 
   private _filterSites(value: string): Site[] {
     const filterValue = value.toLowerCase();
-    return this.sites.filter(site => site.name?.toLowerCase().includes(filterValue));
+    return this.sites.filter(site =>
+      site.name?.toLowerCase().includes(filterValue) &&
+      (!this.showActiveOnly || site.active) // Filter based on the toggle state
+    ).sort((a: Site, b: Site) => a.name.localeCompare(b.name));
+  }
+
+  onToggleChange(): void {
+    this.updateFilteredSites();
+  }
+
+  updateFilteredSites(): void {
+    this.filteredSites = this.siteControl.valueChanges.pipe(
+      startWith(''),
+      map(value => typeof value === 'string' ? value : value?.name),
+      map(name => name ? this._filterSites(name) : this.sites.filter(site => !this.showActiveOnly || site.active).slice())
+    );
+    this.filteredSites.subscribe(filtered => {
+      this.fSites = filtered;
+      if (filtered.length > 0) {
+        this.onSelectSite(filtered[0]);
+        this.siteControl.setValue(filtered[0], {emitEvent: false});
+      }
+    });
   }
 
   onSelectSite(site: Site): void {
     this.selectedSite = site;
+    this.updateTooltipValues();
     this.siteAssetService.getAssets(site.id).subscribe(assets => {
       this.assets = assets;
-      this.selectedAsset = null; // Reset selected asset when a new site is selected
+      if (assets)
+        this.onSelectAsset(assets[0])
+      else
+        this.selectedAsset = null;
     });
   }
 
   onSelectAsset(asset: Asset): void {
     this.selectedAsset = asset;
+
+    this.assetForm.patchValue({
+      id: asset.id,
+      hostname: asset.hostname,
+      terminals: asset.terminals,
+      carriageType: asset.carriageType,
+      carriageFNN: asset.carriageFNN,
+      carriagePort: asset.carriagePort,
+      FNN: asset.FNN,
+      POI: asset.POI,
+      active: asset.active
+    });
+
+    this.setSubnetDetailsArray(this.assetForm.get('lanSubnets') as FormArray, asset.lanSubnets);
+    this.setIPv4CidrRangeArray(this.assetForm.get('wanSubnets') as FormArray, asset.wanSubnets);
+    this.setIPv4CidrRangeArray(this.assetForm.get('loopbacks') as FormArray, asset.loopbacks);
+    this.setRouterDetailsForm(this.assetForm.get('routerDetails') as FormGroup, asset.routerDetails);
+
   }
 
-  isFirstPanel(index: number, asset: Asset): boolean {
-    if(index === 0){
-      this.onSelectAsset(asset);
-    }
-    return index === 0;
+  onSelectAssetChanged(event: MatSelectChange) {
+    this.onSelectAsset(event.value);
   }
 
   displaySite(site: Site): string {
     return site && site.name ? site.name : '';
   }
+
+  selectNextSite() {
+    let site: Site | null = null;
+    if (!this.selectedSite) {
+      site = this.fSites[0];
+    } else {
+      const currentIndex = this.fSites.findIndex(site => site.id === this.selectedSite!.id);
+      const nextIndex = (currentIndex + 1) % this.fSites.length;
+      site = this.fSites[nextIndex];
+    }
+    this.onSelectSite(site)
+    this.siteControl.setValue(site, {emitEvent: false});
+  }
+
+  selectPreviousSite() {
+    let site: Site | null = null;
+    if (!this.selectedSite) {
+      site = this.fSites[this.fSites.length - 1]; // If selectedSite is null, select the last site
+    } else {
+      const currentIndex = this.fSites.findIndex(site => site.id === this.selectedSite!.id);
+      const previousIndex = (currentIndex - 1 + this.fSites.length) % this.fSites.length;
+      site = this.fSites[previousIndex];
+    }
+    this.onSelectSite(site)
+    this.siteControl.setValue(site, {emitEvent: false});
+  }
+
+  updateTooltipValues() {
+    if (!this.selectedSite) {
+      this.nextSiteName = this.fSites.length ? this.fSites[0].name : '';
+      this.previousSiteName = this.fSites.length ? this.fSites[this.fSites.length - 1].name : '';
+    } else {
+      const currentIndex = this.fSites.findIndex(site => site.id === this.selectedSite!.id);
+      const nextIndex = (currentIndex + 1) % this.fSites.length;
+      const previousIndex = (currentIndex - 1 + this.fSites.length) % this.fSites.length;
+      this.nextSiteName = this.fSites[nextIndex].name;
+      this.previousSiteName = this.fSites[previousIndex].name;
+    }
+  }
+
+  show() {
+    console.log(JSON.stringify(this.assetForm.value, null, 2));
+  }
+
+
+  createAssetForm(): FormGroup {
+    return this.fb.group({
+      id: [''],
+      hostname: ['', Validators.required],
+      terminals: [null, Validators.required],
+      lanSubnets: this.fb.array([]),
+      wanSubnets: this.fb.array([]),
+      loopbacks: this.fb.array([]),
+      carriageType: ['', Validators.required],
+      carriageFNN: ['', Validators.required],
+      carriagePort: ['', Validators.required],
+      FNN: ['', Validators.required],
+      POI: ['', Validators.required],
+      routerDetails: this.createRouterDetailsForm(),
+      active: [false]
+    });
+  }
+
+  setAssetFormData(asset: Asset, form: FormGroup): void {
+    form.patchValue({
+      id: asset.id,
+      hostname: asset.hostname,
+      terminals: asset.terminals,
+      carriageType: asset.carriageType,
+      carriageFNN: asset.carriageFNN,
+      carriagePort: asset.carriagePort,
+      FNN: asset.FNN,
+      POI: asset.POI,
+      active: asset.active
+    });
+
+    this.setSubnetDetailsArray(form.get('lanSubnets') as FormArray, asset.lanSubnets);
+    this.setIPv4CidrRangeArray(form.get('wanSubnets') as FormArray, asset.wanSubnets);
+    this.setIPv4CidrRangeArray(form.get('loopbacks') as FormArray, asset.loopbacks);
+    this.setRouterDetailsForm(form.get('routerDetails') as FormGroup, asset.routerDetails);
+  }
+
+  createSubnetDetailsArray(): FormArray {
+    return this.fb.array([]);
+  }
+
+  setSubnetDetailsArray(array: FormArray, subnets: SubnetDetails[]): void {
+    subnets.forEach(subnet => array.push(this.fb.group({
+      subnet: [subnet.subnet.toString(), Validators.required],
+      hosts: this.fb.array(this.createHostArray(subnet.hosts))
+    })));
+  }
+
+  createIPv4CidrRangeArray(): FormArray {
+    return this.fb.array([]);
+  }
+
+  setIPv4CidrRangeArray(array: FormArray, ranges: IPv4CidrRange[]): void {
+    ranges.forEach(range => array.push(this.fb.control(range.toString(), Validators.required)));
+  }
+
+  createRouterDetailsForm(): FormGroup {
+    return this.fb.group({
+      defaultCredentials: this.createCredentialForm(),
+      credentials: this.fb.array([]),
+      serialNumber: ['', Validators.required],
+      model: ['', Validators.required],
+      manufacturer: ['', Validators.required],
+      mobileDetails: this.createMobileDetailsForm()
+    });
+  }
+
+  setRouterDetailsForm(form: FormGroup, routerDetails?: RouterDetails): void {
+    if (!routerDetails) return;
+    form.patchValue({
+      serialNumber: routerDetails.serialNumber,
+      model: routerDetails.model,
+      manufacturer: routerDetails.manufacturer
+    });
+    this.setCredentialsArray(form.get('credentials') as FormArray, routerDetails.credentials);
+    this.setMobileDetailsForm(form.get('mobileDetails') as FormGroup, routerDetails.mobileDetails);
+  }
+
+  createCredentialForm(): FormGroup {
+    return this.fb.group({
+      username: ['', Validators.required],
+      password: [''],
+      purpose: ['']
+    });
+  }
+
+  setCredentialsArray(array: FormArray, credentials: Credential[]): void {
+    credentials.forEach(credential => {
+      const credForm = this.createCredentialForm();
+      credForm.patchValue(credential);
+      array.push(credForm);
+    });
+  }
+
+  createMobileDetailsForm(): FormGroup {
+    return this.fb.group({
+      username: [''],
+      password: [''],
+      firstName: [''],
+      lastName: [''],
+      framedIP: [''],
+      framedRoutes: this.fb.array([]),
+      simSerial: ['', Validators.required],
+      mobileNumber: [''],
+      PUK: ['']
+    });
+  }
+
+  setMobileDetailsForm(form: FormGroup, mobileDetails?: MobileDetails): void {
+    if (!mobileDetails) return;
+    form.patchValue({
+      username: mobileDetails.username,
+      password: mobileDetails.password,
+      firstName: mobileDetails.firstName,
+      lastName: mobileDetails.lastName,
+      framedIP: mobileDetails.framedIP?.toString(),
+      simSerial: mobileDetails.simSerial,
+      mobileNumber: mobileDetails.mobileNumber,
+      PUK: mobileDetails.PUK
+    });
+    this.setIPv4CidrRangeArray(form.get('framedRoutes') as FormArray, mobileDetails.framedRoutes || []);
+  }
+
+  createHostArray(hosts: Host[]): FormGroup[] {
+    return hosts.map(host => this.fb.group({
+      ip: [host.ip.toString(), Validators.required],
+      name: [host.name, Validators.required],
+      active: [host.active],
+      defaultGateway: [host.defaultGateway],
+      network: [host.network],
+      broadcast: [host.broadcast]
+    }));
+  }
+
+  protected readonly FormGroup = FormGroup;
 }

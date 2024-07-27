@@ -16,8 +16,6 @@
       "schematics": {
         "@schematics/angular:component": {
           "style": "scss",
-
-
           "standalone": true,
           "inlineStyle": true,
           "inlineTemplate": true,
@@ -40,16 +38,27 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
+              "src/assets",
               {
                 "glob": "**/*",
                 "input": "public"
               }
             ],
             "styles": [
+              "src/assets/css/bootstrap.min.css",
               "@angular/material/prebuilt-themes/azure-blue.css",
+              "node_modules/@aws-amplify/ui-angular/theme.css",
+              "src/assets/css/fontawesome.min.css",
+              "src/assets/css/all.min.css",
+              "src/assets/css/sharp-light.min.css",
+              "src/assets/css/sharp-regular.min.css",
+              "src/assets/css/sharp-solid.min.css",
+              "src/assets/css/sharp-thin.min.css",
               "src/styles.scss"
             ],
-            "scripts": []
+            "scripts": [
+              "src/assets/js/bootstrap.min.js"
+            ]
           },
           "configurations": {
             "production": {

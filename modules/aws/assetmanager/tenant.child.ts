@@ -17,24 +17,26 @@ import {DynamoDBClient, ResourceNotFoundException} from '@aws-sdk/client-dynamod
 export const processKenoChildRequest = async (
     method: string, body: any, pathParameters: string[],
     TABLE_NAME: string, ddbClient: DynamoDBClient, PK_PREFIX: string,
-    SK_PREFIX: string, baseIndex: number): Promise<APIGatewayProxyResult> => {
-    console.log('a1');
+    SK_PREFIX: string, baseIndex: number, role: string): Promise<APIGatewayProxyResult> => {
     try {
         const tenantId: string = pathParameters[0];
         const parentId: string = baseIndex === -1 ? '' : pathParameters[baseIndex];
-console.log('a2');
         if (!tenantId) throw new InputValidationError('Tenant Id not provided');
         if (parentId == null) throw new InputValidationError('Incorrectly formed request');
-console.log('a3');
-console.log(method);
         switch (method) {
             case 'POST':
+                if (role !== 'admin')
+                    return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
                 return await handleCreateRequest(body, tenantId, parentId, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
             case 'GET':
-                return await handleGetRequest(pathParameters, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX, baseIndex);
+                return await handleGetRequest(pathParameters, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX, baseIndex, role);
             case 'PUT':
+                if (role !== 'admin')
+                    return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
                 return await handleUpdateRequest(body, tenantId, parentId, pathParameters[baseIndex + 2], TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
             case 'DELETE':
+                if (role !== 'admin')
+                    return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
                 return {statusCode: 405, body: JSON.stringify({message: 'Not allowed'})};
             default:
                 return {statusCode: 400, body: JSON.stringify({message: 'Invalid operation'})};
@@ -51,7 +53,6 @@ const handleCreateRequest = async (body: any, tenantId: string, parentId: string
     if (!body || Object.keys(body).length === 0) {
         throw new InputValidationError('Invalid body content');
     }
-    console.log('1');
     const id = uuid();
     let skId = id;
     if (tenantId === '0' && parentId === '') {
@@ -59,7 +60,6 @@ const handleCreateRequest = async (body: any, tenantId: string, parentId: string
         parentId = id;
         skId = '';
     }
-    console.log('2');
     body.id = id;
     const store = {
         pk: `${PK_PREFIX}${parentId}`,
@@ -69,25 +69,21 @@ const handleCreateRequest = async (body: any, tenantId: string, parentId: string
         id: id,
         data: body
     };
-    console.log(store);
 
     const putParams: PutCommandInput = {
         TableName: TABLE_NAME,
         Item: store
     };
-    console.log('3');
     try {
         await ddbClient.send(new PutCommand(putParams));
     } catch (err) {
         console.log(err);
     }
-    console.log('4');
     return {statusCode: 200, body: JSON.stringify({id})};
 };
 
-const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, ddbClient: DynamoDBClient, PK_PREFIX: string, SK_PREFIX: string, baseIndex: number): Promise<APIGatewayProxyResult> => {
-    console.log(SK_PREFIX);
-    if (pathParameters.length === baseIndex + 2 || pathParameters[3] === 'clubplayers') {
+const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, ddbClient: DynamoDBClient, PK_PREFIX: string, SK_PREFIX: string, baseIndex: number, role: string): Promise<APIGatewayProxyResult> => {
+    if (pathParameters.length === baseIndex + 2) {
         const params: QueryCommandInput = {
             TableName: TABLE_NAME,
             KeyConditionExpression: 'pk = :pkValue AND begins_with(sk, :skPrefix)',
@@ -98,14 +94,12 @@ const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, dd
         };
 
         const results: QueryCommandOutput = await ddbClient.send(new QueryCommand(params));
-        const out = results.Items?.map(item => item.data);
+        let out = results.Items?.filter(item => item.tenantId === pathParameters[0]).map(item => item.data);
 
-        // if (PK_PREFIX === 'GRADE#' && SK_PREFIX === 'ROUND#')
-        //     out?.forEach((r3: RoundPHQ) => {
-        //         r3.games?.forEach((game: FixtureGamePHQ) => {
-        //             delete game.password;
-        //         });
-        //     });
+        if(role !== 'admin'){
+            out = removeFields(out, ['password'])
+        }
+
         return {statusCode: 200, body: JSON.stringify(out)};
     }
 
@@ -122,11 +116,13 @@ const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, dd
         throw new Error('Item not found');
     }
 
-    // if (PK_PREFIX === 'GRADE#' && SK_PREFIX === 'ROUND#')
-    //     (data.Item.data as RoundPHQ).games.forEach((game: FixtureGamePHQ) => {
-    //         delete game.password;
-    //     });
+    if(role !== 'admin'){
+        data.Item.data = removeFields(data.Item.data, ['password'])
+    }
 
+    if(data.Item.tenantId !== pathParameters[0]){
+        throw new Error('Item not found');
+    }
     return {statusCode: 200, body: JSON.stringify(data.Item.data)};
 };
 
@@ -134,11 +130,6 @@ const handleUpdateRequest = async (body: any, tenantId: string, parentId: string
     if (!body || Object.keys(body).length === 0) {
         throw new InputValidationError('Invalid body content');
     }
-
-    // if (PK_PREFIX === 'GRADE#' && SK_PREFIX === 'ROUND#')
-    //     (body as RoundPHQ).games?.forEach((game: FixtureGamePHQ) => {
-    //         if (game.password === undefined) game.password = 1234;
-    //     });
 
     const params: UpdateCommandInput = {
         TableName: TABLE_NAME,
@@ -187,11 +178,27 @@ const handleUpdateRequest = async (body: any, tenantId: string, parentId: string
             const putResult = await ddbClient.send(new PutCommand(putParams));
             console.log('PutItem succeeded:', putResult);
         } catch (putError) {
-            throw new Error('Could not save Club Player');
+            throw new Error('Could not save item');
         }
     }
 
     return {statusCode: 204, body: ''};
+};
+
+const removeFields = (obj: any, fieldsToRemove: string[]): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(item => removeFields(item, fieldsToRemove));
+    } else if (typeof obj === 'object' && obj !== null) {
+        const newObj: any = {};
+        for (const key of Object.keys(obj)) {
+            if (!fieldsToRemove.includes(key)) {
+                newObj[key] = removeFields(obj[key], fieldsToRemove);
+            }
+        }
+        return newObj;
+    } else {
+        return obj;
+    }
 };
 
 const handleError = (error: any): APIGatewayProxyResult => {

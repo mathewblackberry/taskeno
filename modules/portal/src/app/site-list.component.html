@@ -1,0 +1,78 @@
+<div class="site-list">
+  <div id="alertPlaceholder"></div>
+  <div class="search-bar"><img src="assets/images/BlackSaltIT_Red_Stacked_TransparentBG.png" alt="Black Salt IT Logo" class="logo"/>
+    <mat-slide-toggle [(ngModel)]="showActiveOnly" (change)="onToggleChange()" style="margin-left: 30px">Active Only</mat-slide-toggle>
+    <!--    <span style="flex: 1"></span>-->
+    <span class="logout-button-wrapper">
+    <button mat-icon-button aria-label="Sign Out" (click)="authenticator.signOut()">
+      <mat-icon fontSet="fa" fontIcon="fa-arrow-up-left-from-circle" class="fa-light">logout</mat-icon>
+    </button>
+    </span>
+  </div>
+  <div class="search-bar">
+    <div class="search-field">
+      <button mat-icon-button (click)="selectPreviousSite()" [matTooltip]="previousSiteName">
+        <mat-icon>navigate_before</mat-icon>
+      </button>
+      <mat-form-field appearance="outline" style="width: 100%" subscriptSizing="dynamic">
+        <mat-icon matIconPrefix>search</mat-icon>
+        <input type="text" matInput [formControl]="siteControl" [matAutocomplete]="auto" placeholder="Search Sites"
+               [attr.autocomplete]="'off'"
+               [attr.autocapitalize]="'off'"
+               spellcheck="false" data-lpignore="true">
+        <mat-autocomplete #auto="matAutocomplete" (optionSelected)="onSelectSite($event.option.value)" [displayWith]="displaySite">
+          <mat-option *ngFor="let site of filteredSites | async" [value]="site">
+            {{ site.name }}
+          </mat-option>
+        </mat-autocomplete>
+      </mat-form-field>
+      <button mat-icon-button (click)="selectNextSite()" [matTooltip]="nextSiteName">
+        <mat-icon>navigate_next</mat-icon>
+      </button>
+    </div>
+
+    @if (selectedSite) {
+      <div class="asset-selector">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-select [ngModel]="selectedAsset" (selectionChange)="onSelectAssetChanged($event)">
+            @for (asset of assets; track asset.id; let i = $index, f = $first) {
+              <mat-option [value]="asset">{{ asset.hostname }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+    }
+  </div>
+  @if (selectedAsset) {
+    <div class="details-section">
+      <mat-tab-group class="full-height">
+        <mat-tab label="Live Tools">
+          <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
+        </mat-tab>
+        <mat-tab label="General">
+          <app-router-general [asset]="selectedAsset" [(ngModel)]="selectedAsset"/>
+        </mat-tab>
+        <mat-tab label="Router Details" *ngIf="selectedAsset.routerDetails">
+          @if (selectedAsset.routerDetails) {
+            <app-router-details [asset]="selectedAsset" [(ngModel)]="selectedAsset.routerDetails" [site]="selectedSite!"/>
+          }
+        </mat-tab>
+        @if (selectedAsset && selectedAsset.routerDetails && selectedAsset.routerDetails.mobileDetails) {
+          <mat-tab label="Mobile Details">
+            <form [formGroup]="assetForm">
+              <ng-container formGroupName="routerDetails">
+                <app-mobile-details [asset]="selectedAsset" [mobileDetailsForm]="mobileDetailsForm"/>
+              </ng-container>
+            </form>
+          </mat-tab>
+
+        }
+        <mat-tab label="LAN Subnets" *ngIf="selectedAsset.lanSubnets">
+          <app-lan-subnets [selectedAsset]="selectedAsset"/>
+        </mat-tab>
+      </mat-tab-group>
+    </div>
+  }
+  <button mat-stroked-button (click)="show()">Show!</button>
+</div>
+

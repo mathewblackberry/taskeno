@@ -1,0 +1,25 @@
+:host {
+  display: flex;
+  flex-direction: column;
+}
+
+mat-form-field {
+  margin: 3px 0;
+}
+
+.edit-button {
+  align-self: end;
+  margin: 8px;
+}
+
+.label-column {
+  width: 200px;
+}
+
+.no-header .mat-mdc-header-row {
+  display: none;
+}
+
+.full-width {
+  width: 100%;
+}

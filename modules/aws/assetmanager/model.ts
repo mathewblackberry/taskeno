@@ -18,6 +18,7 @@ export class Site {
     postcode: string;
     phone: string;
     email: string;
+    active:  boolean;
 }
 
 export class Asset {
@@ -32,9 +33,8 @@ export class Asset {
     carriagePort: string;
     FNN: string;
     POI: string;
-
-
     routerDetails?: RouterDetails;
+    active: boolean;
 }
 
 export class SubnetDetails {
@@ -52,13 +52,18 @@ export class Host {
 }
 
 export class RouterDetails {
-    defaultPassword: string;
-    password: string;
+    defaultCredentials: Credential;
+    credentials: Credential[];
     serialNumber: string;
-    username: string;
     model: string;
     manufacturer: string;
     mobileDetails?: MobileDetails;
+}
+
+export class Credential {
+    username: string;
+    password?: string;
+    purpose?: string
 }
 
 export class MobileDetails {

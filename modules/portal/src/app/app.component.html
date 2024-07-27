@@ -1,4 +1,38 @@
+<amplify-authenticator [formFields]="formFields" [hideSignUp]="false">
+  <ng-template amplifySlot="header">
+    <div style="padding: var(--amplify-space-large); text-align: center">
+      <img
+        class="bsit-image"
+        alt="Black Salt IT Logo"
+        src="../assets/images/BlackSaltIT_Red_Horizontal_TransparentBG.png"
+      />
+    </div>
+  </ng-template>
+  <ng-template
+    amplifySlot="authenticated">
+    <div class="flex w-screen h-screen">
+      <div *ngIf="spinnerVisible$ | async" class="spinner-overlay">
+        <div class="spinner-grow text-primary" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <div class="spinner-grow text-secondary" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <div class="spinner-grow text-success" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <div class="spinner-grow text-danger" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <div class="spinner-grow text-warning" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+        <div class="spinner-grow text-info" role="status">
+          <span class="sr-only">Loading...</span>
+        </div>
+      </div>
 
-
-
-<router-outlet />
+      <router-outlet/>
+    </div>
+  </ng-template>
+</amplify-authenticator>

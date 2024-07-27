@@ -22,7 +22,32 @@ Parameters:
     Description: Tas Keno Route Table
     Type: String
     Default: rtb-094154225a9592f6c
+  S3ConfigBucket:
+    Description: Storage for Config Templates
+    Type: String
+    Default: taskeno-config
+  LibreToken:
+    Description: Libre API Token
+    Type: String
+    Default: 562cf058e30f6798aaefe4136362cefb
 Resources:
+
+  SecurityGroupLambdaVPC:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow all inbound and outbound traffic
+      GroupName: LambdaFunctionSG
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: '0.0.0.0/0'
 
   VPCEndpointTasKenoDynamodb:
     Type: AWS::EC2::VPCEndpoint
@@ -87,6 +112,24 @@ Resources:
 #              StringEquals:
 #                aws:SourceVpce: !Ref VpcId
 
+  Route53ManagePolicy:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: 'Route53ManagePolicy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action:
+              - 'route53:ListHostedZones'
+              - 'route53:ListResourceRecordSets'
+            Resource: '*'
+          - Effect: 'Allow'
+            Action:
+              - 'route53:GetHostedZone'
+              - 'route53:ChangeResourceRecordSets'
+            Resource: 'arn:aws:route53:::hostedzone/*'
+
   RoleTasKenoAPI:
     Type: AWS::IAM::Role
     Properties:
@@ -101,11 +144,91 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Ref DynamoDBAccessPolicy
+        - !Ref Route53ManagePolicy
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${S3ConfigBucket}/*
+
+  RoleClientLambdaAuthorizer:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaAuthorizerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  FunctionClientAuthorizer:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 10
+      MemorySize: 128
+      CodeUri: assetmanager/
+      Handler: client_authorizer.lambdaHandler
+      Runtime: nodejs20.x
+      FunctionName: ClientAuthorizer
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          JWKS_URL: !Sub https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_JKchaTUnw/.well-known/jwks.json
+      Role: !GetAtt RoleClientLambdaAuthorizer.Arn
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        EntryPoints:
+          - client_authorizer.ts
+
+  AuthorizerClient:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: 'ClientLambdaAuthorizer'
+      RestApiId: !Ref RestAPITasKeno
+      Type: REQUEST
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionClientAuthorizer.Arn}/invocations
+      IdentitySource: method.request.header.Authorization
+      AuthorizerResultTtlInSeconds: 0
+
+  ClientLambdaAuthorizerApiGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FunctionClientAuthorizer
+      Principal: apigateway.amazonaws.com
 
   FunctionTasKenoAPIProxy:
     Type: AWS::Serverless::Function
     Properties:
+      Timeout: 30
       MemorySize: 512
       CodeUri: assetmanager/
       Handler: tenant.lambdaHandler
@@ -117,8 +240,17 @@ Resources:
 #        - !Ref NBScoreLayer
       Environment:
         Variables:
-          DYNAMODB_ASSOCIATION_TABLE: !Ref DynamoDBTableTasKenoNMS
+          DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+          S3_CONFIG_BUCKET: !Ref S3ConfigBucket
+          COMMISSION_LIBRE_SQS: !Ref QueueCommissionLibre
+          COMMISSION_SNMPMON_SQS: !Ref QueueCommissionSNMPMon
+          COMMISSION_CRED_SQS: !Ref QueueCommissionCred
       Role: !GetAtt RoleTasKenoAPI.Arn
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -128,7 +260,10 @@ Resources:
         External:
           - "@aws-sdk/client-dynamodb"
           - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
           - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
         EntryPoints:
           - tenant.ts
 
@@ -163,6 +298,22 @@ Resources:
       ParentId: !Ref APIGatewayResourceTasKeno
       PathPart: '{proxy+}'
 
+  APIGatewayResourceRouterController:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPITasKeno
+      ParentId: !GetAtt
+        - RestAPITasKeno
+        - RootResourceId
+      PathPart: controller
+
+  APIGatewayResourceRouterControllerProxy:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPITasKeno
+      ParentId: !Ref APIGatewayResourceRouterController
+      PathPart: '{proxy+}'
+
   APIGatewayMethodTasKenoProxyOptions:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -174,6 +325,7 @@ Resources:
         - StatusCode: "200"
           ResponseModels:
             "application/json": "Empty"
+            "text/plain": "Empty"
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: true
             method.response.header.Access-Control-Allow-Methods: true
@@ -188,7 +340,7 @@ Resources:
             ResponseParameters:
               method.response.header.Access-Control-Allow-Origin: "'*'"
               method.response.header.Access-Control-Allow-Methods: "'POST,PUT,GET,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,responsetype'"
             ResponseTemplates:
               "application/json": ""
 
@@ -196,7 +348,8 @@ Resources:
     Type: AWS::ApiGateway::Method
     DependsOn: APIGatewayResourceTasKenoProxy
     Properties:
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref AuthorizerClient
       HttpMethod: ANY
       ResourceId: !Ref APIGatewayResourceTasKenoProxy
       RestApiId: !Ref RestAPITasKeno
@@ -212,10 +365,73 @@ Resources:
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
               "application/json": ""
+              "text/plain": ""
       MethodResponses:
         - StatusCode: '200'
           ResponseModels:
             'application/json': 'Empty'
+            'text/plain': 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+
+  APIGatewayMethodRouterControllerProxyOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref APIGatewayResourceRouterControllerProxy
+      RestApiId: !Ref RestAPITasKeno
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseModels:
+            "application/json": "Empty"
+            "text/plain": "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+      Integration:
+        Type: MOCK
+        IntegrationHttpMethod: ANY
+        RequestTemplates:
+          "application/json": "{ \"statusCode\": 200 }"
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,PUT,GET,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,responsetype'"
+            ResponseTemplates:
+              "application/json": ""
+
+  APIGatewayMethodRouterControllerProxy:
+    Type: AWS::ApiGateway::Method
+    DependsOn: APIGatewayResourceRouterControllerProxy
+    Properties:
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref AuthorizerClient
+      HttpMethod: ANY
+      ResourceId: !Ref APIGatewayResourceRouterControllerProxy
+      RestApiId: !Ref RestAPITasKeno
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionRouterControllerProxy.Arn}/invocations
+          - LambdaArn: !GetAtt FunctionRouterControllerProxy.Arn
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              "application/json": ""
+              "text/plain": ""
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+            'application/json': 'Empty'
+            'text/plain': 'Empty'
           ResponseParameters:
             method.response.header.Access-Control-Allow-Origin: true
 
@@ -226,7 +442,7 @@ Resources:
       RestApiId: !Ref RestAPITasKeno
       ResponseParameters:
         gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
-        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,responsetype'"
         gatewayresponse.header.Access-Control-Methods: "'OPTIONS,POST'"
 
   APIGatewayResponseDefault5xx:
@@ -236,7 +452,7 @@ Resources:
       RestApiId: !Ref RestAPITasKeno
       ResponseParameters:
         gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
-        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,responsetype'"
         gatewayresponse.header.Access-Control-Methods: "'OPTIONS,POST'"
 
 
@@ -308,6 +524,20 @@ Resources:
         ]
       ]
 
+  LambdaPermissionRouterControllerAPI:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionRouterControllerProxy.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join [
+        "", [
+          "arn:aws:execute-api:",
+          { "Ref": "AWS::Region" }, ":",
+          { "Ref": "AWS::AccountId" }, ":",
+          !Ref RestAPITasKeno, "/*/*/controller*"
+        ]
+      ]
 
   DynamoDBTableTasKenoNMS:
     Type: AWS::DynamoDB::Table
@@ -333,6 +563,343 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+  FunctionRouterControllerProxy:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: 'RouterControllerProxyHandler'
+      Handler: 'proxy_handler.lambda_handler'
+      Runtime: 'python3.12'
+      CodeUri: ./mikrotik_api/
+      Timeout: 60
+      Environment:
+        Variables:
+          ROUTER_IP: '172.27.244.141'
+          ROUTER_USER: 'api'
+          ROUTER_PASSWORD: 'apipassword'
+          CA_PRIVATE_KEY: '-----BEGIN ENCRYPTED PRIVATE KEY-----\nMIIFHDBOBgkqhkiG9w0BBQ0wQTApBgkqhkiG9w0BBQwwHAQIkIJO8Fz4hfcCAggA\nMAwGCCqGSIb3DQIJBQAwFAYIKoZIhvcNAwcECAEpkCndHnKTBIIEyGaZFCoGSdu6\ne8RJ6hdAZRuI2dOi7+azajD0IzZs3/W317M/BiIzWglRkkv7AUI8TBiP9r95vM9J\nkgUqK+EUA6NlmolHZpvSGmiwqtTwDQ4BwUEynjwtYI7caWpDpmMJK9wnj9jHxp3I\nHclSj1qiB+gqe0B/9EVyzXPmSkAGfzEoEmrEKKZlaKKqA49vg5gYHqscdc/jKRV5\nlxxoJt0Jh8eviduouKmgJ5chwomqePE9rxdXzQewL/s1vNeoedwJzLHmG/o8uRqH\nh6HotJ12NdXfOG2hjjTMaZJvFU6WmDH+yLQLk8DSqQdX3gb2tamr6sHi+5L2zmYP\npAX6aaaCRO3IE7UQ60CVc0lnwhlL3LQBxGUwuqTR+ZSKZI/oMybhtzEOh/nTYlAF\nhJ8sMx8XEK4PILDUpDACWWqm7xsn7P5a5JnFboNUTpeyTkcmtXo9f9L08b3ZNiK7\nfPcoDN7ThUp9F/I2aTAnrzxp0tkjtQ9zkgeuxsHsukpcmoTmJMwvRAHpKIUFODMb\nxGV7I7MkzlSaJBpYUu3W9rHrBJcAjGqa77Rj6c8aRNjEnjeC5JUIlSH3cpVYTABh\n+op2cih4twDDH9tWsczqWCRW4IqgfBSugdSCurhormUQrfROsmn8hrjrczlHSUSf\n9oO0pCKHOWbc+OtB8GMETKxMPeYzJMNvJGzxIEjvy3m3d7VMUMVbR7B5LA9NyBUc\nsdIJCDGszhQflYoawrR7Dk2/G7a0o3RkRxxztUfuk4p83YNrOYd32pKGKqi2yNF8\nqqNGks9O1Y30zv8ox++H5TrYHzFEqr8/8qjlFk9oA2bYPFD7WmsxLu4UfW0TONyS\nrLQV/YVJmAujlkwO43Ck+g3OzsEtK9V/twmN4Yox/dWfuz+6g4deb/i1MWRuCyaJ\nTrnMV9iHFKQ2skX4jHNPAMhWAWXNuqjmLldhf/3s1jlLnbIB5O50Tm0XdwoKkhwH\nlRyhiRm076Q32NOA5Ty+JwT5j3h7t0x9CXZNhaMdbyYA0Lqf34tqhMvEjKbvRy+Y\njZfZtxa8/HeJMy29RjVyjgc/UBmt6haouk3bCVB8+jpkFGwKnr+eNmHNHnH3GsT5\npb3ROqFvF6TWoHPIQ5bY+5XH/w06iMyjmvZuJPvXcNP7ZQRiy36ePXG/q94yTDI8\nqHywtZPaMa/rQ1i4DxgO98G+5fAnXkro3M5EEDRFvFFL5ftabsEZj0C2gsj5nExE\n7b7HEmBuTx9Y1bV8Ub+M0XVLRKXvVgkBXmnoWQs1sL83MoyrWlynAROYToWz20v4\nSXQA9lbd0txJEO/V/4MT7dTNHoTeFRpj9EXDsWjKYvLlz5UR6EbdDqtlebEgl6Jk\n4bO39d77S+2K6SiCIpbvlE5+zK4XAFBnsi8kxSeLoR+LwCpprjXZqWcOg8fGvevB\nBrmYsTlL6Zzgc2ga4+U+rf4rDFa+4JfSAAyclgh2fArMUb5ogAJM8RHjbN5tnWst\nYldKw2Cb43ySNpjzmfGlNmW++Tb6lamsNg50MpozoBD14jUmGd23xX270nLhM7jW\nkVW48vdPRgljxVzx2GWiM7kKI8lnTFSJpSXEW8WTCllMy9uksa3nCz7p1HUaA6A4\nTy5MlcBjXqdYAssHuJKCRA==\n-----END ENCRYPTED PRIVATE KEY-----'
+          CA_KEY_PASSWORD: 'veBRUn*2'
+          CA_CERTIFICATE: '-----BEGIN CERTIFICATE-----\nMIIEOTCCAyGgAwIBAgIUK40k8NXeQhYe5TWkkGtgOuloGVIwDQYJKoZIhvcNAQEL\nBQAwgasxCzAJBgNVBAYTAkFVMREwDwYDVQQIDAhUYXNtYW5pYTETMBEGA1UEBwwK\nTGF1bmNlc3RvbjEWMBQGA1UECgwNQmxhY2sgU2FsdCBJVDERMA8GA1UECwwITmV0\nd29ya3MxHzAdBgNVBAMMFkJsYWNrIFNhbHQgSVQgTmV0d29ya3MxKDAmBgkqhkiG\n9w0BCQEWGW1hdGhld0BibGFja3NhbHRpdC5jb20uYXUwHhcNMjIxMjIxMjM0MDA5\nWhcNMjcxMjIwMjM0MDA5WjCBqzELMAkGA1UEBhMCQVUxETAPBgNVBAgMCFRhc21h\nbmlhMRMwEQYDVQQHDApMYXVuY2VzdG9uMRYwFAYDVQQKDA1CbGFjayBTYWx0IElU\nMREwDwYDVQQLDAhOZXR3b3JrczEfMB0GA1UEAwwWQmxhY2sgU2FsdCBJVCBOZXR3\nb3JrczEoMCYGCSqGSIb3DQEJARYZbWF0aGV3QGJsYWNrc2FsdGl0LmNvbS5hdTCC\nASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANcVkbfGu9p0vixbSJmSrHDg\neCeO04hSj3oa89hYZyHNiTqeIwu1l7AsaWFrHLgvyR2KYnHczVveX223s59EzRPL\nGQEM20gLzCeVdWYNgn9yDGTmCOYNu+0r9AF4HGs2FCiSjvQFadVsUjQIRwmCukIm\nIkmGxff78jOnosU2HdwMbdiktF7rY/XOkRsHvEttZlpNAO7zfqQHTlGfQHz5tt7e\n/ibMt/4u1X3OloU9sRj8R0o8JSxYAqt/iS4ay9r/vypLP4BCueno4qS2XMPwzQYJ\nHpcnj+mcVYR/YARNE+76FAPfo3gq1MKJji0KZNOvJioP9mJKkgmi5n0UMjJ0do0C\nAwEAAaNTMFEwHQYDVR0OBBYEFBudNJkVDRWJIiHgnZqZ66l/R1j5MB8GA1UdIwQY\nMBaAFBudNJkVDRWJIiHgnZqZ66l/R1j5MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZI\nhvcNAQELBQADggEBAJrgyE0sJ6RfQCseBMk1PyGPf/no+ul1WOXW1CNs2og0W/2g\nmI5fdkVd6AGUpqR8HUCM4hYStsMnnN79LJFRuqsG5MX5ykiekbd6Tp6EtaLPaBgB\nL034GIc284w1pA3+1IYpB7dxRqm5v8ZBr7LsUaHtINDItr22aSQH4SDo3OKxgE6D\nT4TVz7waS8fpRUP21bBitwOjAdirNP/HUkS5FFrj018rnF8LkSkJZ8LYLxEWRP2z\n/ZoyFxNGYzd+ACcQ7qcWskaRG8Oh7MisL8gsxEJ0NoetM8Xh+1UAZWJwShaIyb7f\n+1wehjfEOzpD8j1uFjeJOqHfMQehjsl8/mr+6g8=\n-----END CERTIFICATE-----'
+#          OXIDIZED_RSA_KEY: STORED IN FUNCTION AS 4K Env Var limit hit
+          DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'LambdaExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !Ref DynamoDBAccessPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: 'LambdaExecutionPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'logs:*'
+                Resource: '*'
+
+  QueueCommissionLibreDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-libre-dlq.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+  QueueCommissionLibre:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-libre-queue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      VisibilityTimeout: 90
+      DelaySeconds: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt QueueCommissionLibreDLQ.Arn
+        maxReceiveCount: 5
+  RoleSQSCommissionLibreExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SQSCommissionLibreLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt QueueCommissionLibre.Arn
+                  - !GetAtt QueueCommissionLibreDLQ.Arn
+  FunctionSQSCommissionLibre:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SQSCommissionLibre
+      Handler: commission-libre.handler
+      Role: !GetAtt RoleSQSCommissionLibreExecution.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref QueueCommissionLibre
+          LIBRE_API_TOKEN: !Ref LibreToken
+          CA_BASE64_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVPVENDQXlHZ0F3SUJBZ0lVSzQwazhOWGVRaFllNVRXa2tHdGdPdWxvR1ZJd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2dhc3hDekFKQmdOVkJBWVRBa0ZWTVJFd0R3WURWUVFJREFoVVlYTnRZVzVwWVRFVE1CRUdBMVVFQnd3SwpUR0YxYm1ObGMzUnZiakVXTUJRR0ExVUVDZ3dOUW14aFkyc2dVMkZzZENCSlZERVJNQThHQTFVRUN3d0lUbVYwCmQyOXlhM014SHpBZEJnTlZCQU1NRmtKc1lXTnJJRk5oYkhRZ1NWUWdUbVYwZDI5eWEzTXhLREFtQmdrcWhraUcKOXcwQkNRRVdHVzFoZEdobGQwQmliR0ZqYTNOaGJIUnBkQzVqYjIwdVlYVXdIaGNOTWpJeE1qSXhNak0wTURBNQpXaGNOTWpjeE1qSXdNak0wTURBNVdqQ0JxekVMTUFrR0ExVUVCaE1DUVZVeEVUQVBCZ05WQkFnTUNGUmhjMjFoCmJtbGhNUk13RVFZRFZRUUhEQXBNWVhWdVkyVnpkRzl1TVJZd0ZBWURWUVFLREExQ2JHRmpheUJUWVd4MElFbFUKTVJFd0R3WURWUVFMREFoT1pYUjNiM0pyY3pFZk1CMEdBMVVFQXd3V1FteGhZMnNnVTJGc2RDQkpWQ0JPWlhSMwpiM0pyY3pFb01DWUdDU3FHU0liM0RRRUpBUllaYldGMGFHVjNRR0pzWVdOcmMyRnNkR2wwTG1OdmJTNWhkVENDCkFTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTmNWa2JmR3U5cDB2aXhiU0ptU3JIRGcKZUNlTzA0aFNqM29hODloWVp5SE5pVHFlSXd1MWw3QXNhV0ZySExndnlSMktZbkhjelZ2ZVgyMjNzNTlFelJQTApHUUVNMjBnTHpDZVZkV1lOZ245eURHVG1DT1lOdSswcjlBRjRIR3MyRkNpU2p2UUZhZFZzVWpRSVJ3bUN1a0ltCklrbUd4ZmY3OGpPbm9zVTJIZHdNYmRpa3RGN3JZL1hPa1JzSHZFdHRabHBOQU83emZxUUhUbEdmUUh6NXR0N2UKL2liTXQvNHUxWDNPbG9VOXNSajhSMG84SlN4WUFxdC9pUzRheTlyL3Z5cExQNEJDdWVubzRxUzJYTVB3elFZSgpIcGNuaittY1ZZUi9ZQVJORSs3NkZBUGZvM2dxMU1LSmppMEtaTk92SmlvUDltSktrZ21pNW4wVU1qSjBkbzBDCkF3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQjhHQTFVZEl3UVkKTUJhQUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUpyZ3lFMHNKNlJmUUNzZUJNazFQeUdQZi9ubyt1bDFXT1hXMUNOczJvZzBXLzJnCm1JNWZka1ZkNkFHVXBxUjhIVUNNNGhZU3RzTW5uTjc5TEpGUnVxc0c1TVg1eWtpZWtiZDZUcDZFdGFMUGFCZ0IKTDAzNEdJYzI4NHcxcEEzKzFJWXBCN2R4UnFtNXY4WkJyN0xzVWFIdElOREl0cjIyYVNRSDRTRG8zT0t4Z0U2RApUNFRWejd3YVM4ZnBSVVAyMWJCaXR3T2pBZGlyTlAvSFVrUzVGRnJqMDE4cm5GOExrU2tKWjhMWUx4RVdSUDJ6Ci9ab3lGeE5HWXpkK0FDY1E3cWNXc2thUkc4T2g3TWlzTDhnc3hFSjBOb2V0TThYaCsxVUFaV0p3U2hhSXliN2YKKzF3ZWhqZkVPenBEOGoxdUZqZUpPcUhmTVFlaGpzbDgvbXIrNmc4PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==%
+          DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+      Timeout: 90
+      MemorySize: 256
+      CodeUri: commission-sqs/
+      Architectures:
+        - x86_64
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
+          - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
+        EntryPoints:
+          - commission-libre.ts
+  LambdaSQSTriggerCommissionLibre:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt QueueCommissionLibre.Arn
+      FunctionName: !GetAtt FunctionSQSCommissionLibre.Arn
+      Enabled: true
+
+
+  QueueCommissionSNMPMonDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-snmpmon-dlq.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+  QueueCommissionSNMPMon:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-snmpmon-queue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      VisibilityTimeout: 90
+      DelaySeconds: 0
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt QueueCommissionSNMPMonDLQ.Arn
+        maxReceiveCount: 5
+  RoleSQSCommissionSNMPMonExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SQSCommissionSNMPMonLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt QueueCommissionSNMPMon.Arn
+                  - !GetAtt QueueCommissionSNMPMonDLQ.Arn
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${S3ConfigBucket}/*
+  FunctionSQSCommissionSNMPMon:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SQSCommissionSNMPMon
+      Handler: commission-snmpmon.handler
+      Role: !GetAtt RoleSQSCommissionSNMPMonExecution.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref QueueCommissionSNMPMon
+          S3_CONFIG_BUCKET: !Ref S3ConfigBucket
+      Timeout: 90
+      MemorySize: 256
+      CodeUri: commission-sqs/
+      Architectures:
+        - x86_64
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
+          - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
+        EntryPoints:
+          - commission-snmpmon.ts
+  LambdaSQSTriggerCommissionSNMPMon:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt QueueCommissionSNMPMon.Arn
+      FunctionName: !GetAtt FunctionSQSCommissionSNMPMon.Arn
+      Enabled: true
+
+
+  QueueCommissionCredDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-cred-dlq.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+  QueueCommissionCred:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: commission-cred-queue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      VisibilityTimeout: 90
+      DelaySeconds: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt QueueCommissionCredDLQ.Arn
+        maxReceiveCount: 5
+  RoleSQSCommissionCredExecution:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SQSCommissionCredLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt QueueCommissionCred.Arn
+                  - !GetAtt QueueCommissionCredDLQ.Arn
+        - PolicyName: DynamoDBAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableTasKenoNMS}
+
+  FunctionSQSCommissionCred:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SQSCommissionCred
+      Handler: commission-cred.handler
+      Role: !GetAtt RoleSQSCommissionCredExecution.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref QueueCommissionCred
+          CA_BASE64_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVPVENDQXlHZ0F3SUJBZ0lVSzQwazhOWGVRaFllNVRXa2tHdGdPdWxvR1ZJd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2dhc3hDekFKQmdOVkJBWVRBa0ZWTVJFd0R3WURWUVFJREFoVVlYTnRZVzVwWVRFVE1CRUdBMVVFQnd3SwpUR0YxYm1ObGMzUnZiakVXTUJRR0ExVUVDZ3dOUW14aFkyc2dVMkZzZENCSlZERVJNQThHQTFVRUN3d0lUbVYwCmQyOXlhM014SHpBZEJnTlZCQU1NRmtKc1lXTnJJRk5oYkhRZ1NWUWdUbVYwZDI5eWEzTXhLREFtQmdrcWhraUcKOXcwQkNRRVdHVzFoZEdobGQwQmliR0ZqYTNOaGJIUnBkQzVqYjIwdVlYVXdIaGNOTWpJeE1qSXhNak0wTURBNQpXaGNOTWpjeE1qSXdNak0wTURBNVdqQ0JxekVMTUFrR0ExVUVCaE1DUVZVeEVUQVBCZ05WQkFnTUNGUmhjMjFoCmJtbGhNUk13RVFZRFZRUUhEQXBNWVhWdVkyVnpkRzl1TVJZd0ZBWURWUVFLREExQ2JHRmpheUJUWVd4MElFbFUKTVJFd0R3WURWUVFMREFoT1pYUjNiM0pyY3pFZk1CMEdBMVVFQXd3V1FteGhZMnNnVTJGc2RDQkpWQ0JPWlhSMwpiM0pyY3pFb01DWUdDU3FHU0liM0RRRUpBUllaYldGMGFHVjNRR0pzWVdOcmMyRnNkR2wwTG1OdmJTNWhkVENDCkFTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTmNWa2JmR3U5cDB2aXhiU0ptU3JIRGcKZUNlTzA0aFNqM29hODloWVp5SE5pVHFlSXd1MWw3QXNhV0ZySExndnlSMktZbkhjelZ2ZVgyMjNzNTlFelJQTApHUUVNMjBnTHpDZVZkV1lOZ245eURHVG1DT1lOdSswcjlBRjRIR3MyRkNpU2p2UUZhZFZzVWpRSVJ3bUN1a0ltCklrbUd4ZmY3OGpPbm9zVTJIZHdNYmRpa3RGN3JZL1hPa1JzSHZFdHRabHBOQU83emZxUUhUbEdmUUh6NXR0N2UKL2liTXQvNHUxWDNPbG9VOXNSajhSMG84SlN4WUFxdC9pUzRheTlyL3Z5cExQNEJDdWVubzRxUzJYTVB3elFZSgpIcGNuaittY1ZZUi9ZQVJORSs3NkZBUGZvM2dxMU1LSmppMEtaTk92SmlvUDltSktrZ21pNW4wVU1qSjBkbzBDCkF3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQjhHQTFVZEl3UVkKTUJhQUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUpyZ3lFMHNKNlJmUUNzZUJNazFQeUdQZi9ubyt1bDFXT1hXMUNOczJvZzBXLzJnCm1JNWZka1ZkNkFHVXBxUjhIVUNNNGhZU3RzTW5uTjc5TEpGUnVxc0c1TVg1eWtpZWtiZDZUcDZFdGFMUGFCZ0IKTDAzNEdJYzI4NHcxcEEzKzFJWXBCN2R4UnFtNXY4WkJyN0xzVWFIdElOREl0cjIyYVNRSDRTRG8zT0t4Z0U2RApUNFRWejd3YVM4ZnBSVVAyMWJCaXR3T2pBZGlyTlAvSFVrUzVGRnJqMDE4cm5GOExrU2tKWjhMWUx4RVdSUDJ6Ci9ab3lGeE5HWXpkK0FDY1E3cWNXc2thUkc4T2g3TWlzTDhnc3hFSjBOb2V0TThYaCsxVUFaV0p3U2hhSXliN2YKKzF3ZWhqZkVPenBEOGoxdUZqZUpPcUhmTVFlaGpzbDgvbXIrNmc4PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==%
+          DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+          DEFAULT_API_PASSWORD: apipassword
+          RADIUS_SECRET: 6tAiCJ8P$N^P^A3ZOEiK3LtqZLfKd^
+          RADIUS_SERVER: 172.27.252.10
+      Timeout: 90
+      MemorySize: 256
+      CodeUri: commission-sqs/
+      Architectures:
+        - x86_64
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
+          - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
+        EntryPoints:
+          - commission-cred.ts
+  LambdaSQSTriggerCommissionCred:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt QueueCommissionCred.Arn
+      FunctionName: !GetAtt FunctionSQSCommissionCred.Arn
+      Enabled: true
 
 #Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
