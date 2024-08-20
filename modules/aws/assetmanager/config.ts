@@ -11,7 +11,6 @@ interface Config {
 const s3: S3 = new S3({region: process.env.AWS_REGION});
 
 export const processConfigRequest = async (s3Bucket: string, s3Path: string, asset: Asset, site: Site): Promise<APIGatewayProxyResult> => {
-    console.log(s3Bucket, s3Path);
     let asset2: any = asset;
     asset2.site = site;
     const config: string = await readFileFromS3(s3Bucket, s3Path);
@@ -59,6 +58,13 @@ const ipplus = (ip: string, n: number): string => {
     return parts.join('.');
 };
 
+const numipplus = (ip: string, n: number): string => {
+    const parts = ip.split('.');
+    const ans = (parseInt(parts[3]) + n).toString();
+    console.log(ans);
+    return ans;
+};
+
 const cidripplussubnet = (cidr: string, n: number): string => {
     const [ipAddress, subnet] = cidr.split('/');
     const parts = ipAddress.split('.');
@@ -94,6 +100,14 @@ const functions: { [key: string]: (config: Config, args: string[]) => string } =
         const ipValue = getValue(config, ipKey);
         if (typeof ipValue === 'string') {
             return ipplus(ipValue, parseInt(increment));
+        }
+        return '';
+    },
+    numipplus: (config: Config, args: string[]): string => {
+        const [ipKey, increment] = args;
+        const ipValue = getValue(config, ipKey);
+        if (typeof ipValue === 'string') {
+            return numipplus(ipValue, parseInt(increment));
         }
         return '';
     },

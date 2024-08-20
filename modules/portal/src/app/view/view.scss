@@ -1,6 +1,7 @@
 :host {
   display: flex;
   flex-direction: column;
+  //height: 100%;
 }
 
 mat-form-field {
@@ -22,4 +23,75 @@ mat-form-field {
 
 .full-width {
   width: 100%;
+}
+
+
+.subnet {
+  width: 200px;
+}
+
+.headers-align .mat-expansion-panel-header-description {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.active-column {
+  width: 60px;
+  text-align: center;
+}
+
+.ip-column {
+  width: 150px;
+}
+
+.network-row {
+  font-weight: bold;
+  background-color: #f0f0f0;
+}
+
+.headers-align .mat-expansion-panel-header-description {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.headers-align .mat-mdc-form-field + .mat-mdc-form-field {
+  margin-left: 8px;
+}
+
+.center-align {
+  display: flex;
+  justify-content: center;
+  padding: 5px 16px;
+}
+
+.hosts-container {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.header-row, .data-row {
+  display: table-row;
+  font-size: 14px;
+}
+
+.header-cell, .data-cell {
+  display: table-cell;
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  height: 52px;
+  box-sizing: border-box;
+}
+
+.header-cell {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.username-column {
+  width: 250px;
+}
+
+.password-column {
+  width: 400px;
 }

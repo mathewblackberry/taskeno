@@ -6,6 +6,11 @@ export class Tenant {
     email: string;
     phone: string;
     primaryContact: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    postcode: string;
 }
 
 export class Site {
@@ -46,9 +51,6 @@ export class Host {
     ip: IPv4;
     name: string;
     active: boolean;
-    defaultGateway?: boolean;
-    network?: boolean;
-    broadcast?: boolean;
 }
 
 export class RouterDetails {
@@ -72,9 +74,32 @@ export class MobileDetails {
     firstName?: string;
     lastName?: string;
     framedIP?: IPv4;
-
     framedRoutes?: IPv4CidrRange[];
     simSerial: string;
     mobileNumber: string;
     PUK: string;
 }
+
+
+export class Comment {
+    user: string;
+    id: string | null;
+    comment: string;
+    edited: boolean = false;
+}
+
+    export class InvoiceEvent {
+        eventType: 'ACTIVATED' | 'DEACTIVATED';
+        timestamp: string;
+        rate: Rate;
+        id: string;
+        tenantId: string;
+    }
+
+    export class Rate {
+        id: string;
+        name: string;
+        upfront: number;
+        ongoing: number;
+        tenantId: string;
+    }

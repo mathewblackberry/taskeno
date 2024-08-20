@@ -1,0 +1,385 @@
+<?xml version='1.0'?>
+<Invoice>
+    <tenant>
+        <address2/>
+        <city>Sandy Bay</city>
+        <phone>0407 357 397</phone>
+        <address1>410 Sandy Bay Rd</address1>
+        <primaryContact>Michael Giizel</primaryContact>
+        <name>Federal Group (Tas Keno)</name>
+        <postcode>7005</postcode>
+        <id>986922ea-0eb2-4ca4-ab88-904021866c3b</id>
+        <state>TAS</state>
+        <email>mgiizel@federalgroup.com.au</email>
+    </tenant>
+    <invoiceId>INV-034</invoiceId>
+    <invoiceDate>15 Aug 2024</invoiceDate>
+    <dueDate>29 Aug 2024</dueDate>
+    <data>
+        <site>
+            <active>true</active>
+            <address>78 Formby Rd</address>
+            <address2>null</address2>
+            <city>DEVONPORT</city>
+            <email>null</email>
+            <id>27653fc5-c76b-4841-ba48-7f556786fa40</id>
+            <latitude>-41.18080030116688</latitude>
+            <longitude>146.3626935874797</longitude>
+            <name>Alexander Hotel</name>
+            <phone>+61364249427.0</phone>
+            <postcode>7310</postcode>
+            <state>TAS</state>
+        </site>
+        <assets>
+            <asset>
+                <FNN>N1044780R</FNN>
+                <POI>LAU</POI>
+                <active>true</active>
+                <carriageFNN>N/A</carriageFNN>
+                <carriagePort>N/A</carriagePort>
+                <carriageType>FTTN</carriageType>
+                <hostname>tkoaler01mlt6</hostname>
+                <id>2686b078-9259-4309-9b34-1997539257ba</id>
+                <lanSubnets>
+                    <subnet>10.22.4.0/28</subnet>
+                    <hosts>
+                        <name>Network Address</name>
+                        <active>true</active>
+                        <ip>10.22.4.0</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Default Gateway</name>
+                        <active>true</active>
+                        <ip>10.22.4.1</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Terminal 1</name>
+                        <active>true</active>
+                        <ip>10.22.4.2</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Terminal 2</name>
+                        <active>true</active>
+                        <ip>10.22.4.3</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.4</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.5</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.6</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.7</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.8</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.9</ip>
+                    </hosts>
+                    <hosts>
+                        <name>KDS</name>
+                        <active>true</active>
+                        <ip>10.22.4.10</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.11</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.12</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.13</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.4.14</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Broadcast Address</name>
+                        <active>true</active>
+                        <ip>10.22.4.15</ip>
+                    </hosts>
+                </lanSubnets>
+                <loopbacks>172.27.244.0</loopbacks>
+                <routerDetails>
+                    <model>Chateau LTE6 - D53G-5HacD2HnD-TC&amp;FG621-EA</model>
+                    <defaultCredentials>
+                        <purpose/>
+                        <password/>
+                        <username/>
+                    </defaultCredentials>
+                    <serialNumber>null</serialNumber>
+                    <mobileDetails>
+                        <firstName>MobileBU</firstName>
+                        <lastName>tkoaler01mlt6</lastName>
+                        <password>Zf5Tz0Wp</password>
+                        <mobileNumber>null</mobileNumber>
+                        <PUK>null</PUK>
+                        <simSerial>8000 4508 9907 7N</simSerial>
+                        <framedIP>10.22.250.0</framedIP>
+                        <framedRoutes>10.22.4.0/29</framedRoutes>
+                        <framedRoutes>10.22.4.8/29</framedRoutes>
+                        <framedRoutes>172.27.244.0/32</framedRoutes>
+                        <username>aler01</username>
+                    </mobileDetails>
+                    <credentials>
+                        <purpose/>
+                        <password>iObPb0gq1j_Ot@^G</password>
+                        <username>admin</username>
+                    </credentials>
+                    <credentials>
+                        <purpose/>
+                        <password>kEKFUIq0RZ+CbBP0eaqQmBIn</password>
+                        <username>api</username>
+                    </credentials>
+                    <credentials>
+                        <purpose/>
+                        <password>AEomQ6em5JvnXB45fMFpttYdffCcnF/IMLr5kZZaZhQ2EcYWNrq6AKTTm2ClYmcd</password>
+                        <username>backup</username>
+                    </credentials>
+                    <manufacturer>Mikrotik</manufacturer>
+                </routerDetails>
+                <terminals>2</terminals>
+                <wanSubnets>10.22.202.1/24</wanSubnets>
+            </asset>
+            <events>
+                <eventType>ACTIVATED</eventType>
+                <timestamp>10 July 2024</timestamp>
+                <rate>
+                    <name>Mikrotik Router with NBN and Mobile Backup</name>
+                    <id>7b1d6cca-8267-4fce-a56c-1d57190dd26c</id>
+                    <ongoing>55</ongoing>
+                    <upfront>200</upfront>
+                </rate>
+                <billingAmount>10.65</billingAmount>
+                <until>06 Aug 2024</until>
+            </events>
+            <events>
+                <eventType>DEACTIVATED</eventType>
+                <timestamp>06 Aug 2024</timestamp>
+                <rate>undefined</rate>
+                <billingAmount>10.65</billingAmount>
+                <until>undefined</until>
+            </events>
+            <events>
+                <eventType>ACTIVATED</eventType>
+                <timestamp>10 Aug 2024</timestamp>
+                <rate>
+                    <name>Mikrotik Router with NBN and Mobile Backup</name>
+                    <id>7b1d6cca-8267-4fce-a56c-1d57190dd26c</id>
+                    <ongoing>55</ongoing>
+                    <upfront>200</upfront>
+                </rate>
+                <billingAmount>207.10</billingAmount>
+                <until>13 Aug 2024</until>
+            </events>
+            <events>
+                <eventType>DEACTIVATED</eventType>
+                <timestamp>13 Aug 2024</timestamp>
+                <rate>undefined</rate>
+                <billingAmount>207.10</billingAmount>
+                <until>undefined</until>
+            </events>
+            <events>
+                <eventType>ACTIVATED</eventType>
+                <timestamp>22 Aug 2024</timestamp>
+                <rate>
+                    <name>Mikrotik Router with NBN and Mobile Backup</name>
+                    <id>7b1d6cca-8267-4fce-a56c-1d57190dd26c</id>
+                    <ongoing>55</ongoing>
+                    <upfront>50</upfront>
+                </rate>
+                <billingAmount>67.74</billingAmount>
+                <until>31 Aug 2024</until>
+            </events>
+            <billingAmount>285.48</billingAmount>
+            <wasActive>true</wasActive>
+        </assets>
+    </data>
+    <data>
+        <site>
+            <active>true</active>
+            <address>56 Farrell St</address>
+            <address2>null</address2>
+            <city>TULLAH</city>
+            <email>null</email>
+            <id>9e5da5be-9d23-48ec-b6ca-2348ee67c411</id>
+            <latitude>-41.73612659893495</latitude>
+            <longitude>145.6122992000205</longitude>
+            <name>Tullah Lakeside Lodge</name>
+            <phone>+61362540078.0</phone>
+            <postcode>7321</postcode>
+            <state>TAS</state>
+        </site>
+        <assets>
+            <asset>
+                <FNN>null</FNN>
+                <POI>LAU</POI>
+                <active>true</active>
+                <carriageFNN>N/A</carriageFNN>
+                <carriagePort>N/A</carriagePort>
+                <carriageType>NextG</carriageType>
+                <hostname>tkotllr01mlt6</hostname>
+                <id>da838277-6f30-474b-89f8-2ba678e53987</id>
+                <lanSubnets>
+                    <subnet>10.22.7.112/28</subnet>
+                    <hosts>
+                        <name>Network Address</name>
+                        <active>true</active>
+                        <ip>10.22.7.112</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Default Gateway</name>
+                        <active>true</active>
+                        <ip>10.22.7.113</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Terminal 1</name>
+                        <active>true</active>
+                        <ip>10.22.7.114</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.115</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.116</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.117</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.118</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.119</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.120</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.121</ip>
+                    </hosts>
+                    <hosts>
+                        <name>KDS</name>
+                        <active>true</active>
+                        <ip>10.22.7.122</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.123</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.124</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.125</ip>
+                    </hosts>
+                    <hosts>
+                        <name/>
+                        <active>false</active>
+                        <ip>10.22.7.126</ip>
+                    </hosts>
+                    <hosts>
+                        <name>Broadcast Address</name>
+                        <active>true</active>
+                        <ip>10.22.7.127</ip>
+                    </hosts>
+                </lanSubnets>
+                <loopbacks>172.27.244.141</loopbacks>
+                <routerDetails>
+                    <model>Chateau LTE6 - D53G-5HacD2HnD-TC&amp;FG621-EA</model>
+                    <defaultCredentials>
+                        <purpose/>
+                        <password/>
+                        <username/>
+                    </defaultCredentials>
+                    <serialNumber>HEY09D4H0P6</serialNumber>
+                    <mobileDetails>
+                        <firstName>null</firstName>
+                        <lastName>null</lastName>
+                        <password>MidlandsHoPass</password>
+                        <mobileNumber>409984272</mobileNumber>
+                        <PUK>13461829</PUK>
+                        <simSerial>8200 0883 2112 8N</simSerial>
+                        <framedIP>10.22.250.141</framedIP>
+                        <framedRoutes>10.22.7.112/29</framedRoutes>
+                        <framedRoutes>10.22.7.120/29</framedRoutes>
+                        <framedRoutes>172.27.244.141/32</framedRoutes>
+                        <username>midlandsho</username>
+                    </mobileDetails>
+                    <credentials>
+                        <purpose/>
+                        <password>$n33mhBONlwIQ*Ze</password>
+                        <username>admin</username>
+                    </credentials>
+                    <manufacturer>Mikrotik</manufacturer>
+                </routerDetails>
+                <terminals>1</terminals>
+                <wanSubnets>10.22.202.84/24</wanSubnets>
+            </asset>
+            <events>
+                <eventType>ACTIVATED</eventType>
+                <timestamp>15 July 2024</timestamp>
+                <rate>
+                    <name>Mikrotik Router with NBN and Mobile Backup</name>
+                    <id>7b1d6cca-8267-4fce-a56c-1d57190dd26c</id>
+                    <ongoing>55</ongoing>
+                    <upfront>200</upfront>
+                </rate>
+                <billingAmount>55.00</billingAmount>
+                <until>31 Aug 2024</until>
+            </events>
+            <billingAmount>55.00</billingAmount>
+            <wasActive>true</wasActive>
+        </assets>
+    </data>
+    <totalExGst>9999.60</totalExGst>
+    <gst>999.96</gst>
+    <totalIncGst>10999.56</totalIncGst>
+    <overdueIncGst>9823.00</overdueIncGst>
+    <totalDue>20822.56</totalDue>
+    <periodStartDate>01 Aug 2024</periodStartDate>
+    <periodEndDate>31 Aug 2024</periodEndDate>
+</Invoice>

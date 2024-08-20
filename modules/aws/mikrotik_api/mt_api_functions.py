@@ -67,10 +67,11 @@ def update_radius():
         }
 
 
-def complete_get(path, cert, loopback):
+def complete_get(path, cert, loopback, router_password):
     router_ip = loopback  # os.environ.get('ROUTER_IP')
     router_user = os.environ.get('ROUTER_USER')
-    router_password = os.environ.get('ROUTER_PASSWORD')
+    # router_password = os.environ.get('ROUTER_PASSWORD')
+
 
     if not router_ip or not router_user or not router_password:
         return {'statusCode': 400, 'body': json.dumps({'message': 'Router credentials are not available'}), 'headers': {'Access-Control-Allow-Origin': '*'}}

@@ -1,0 +1,29 @@
+<fop version="1.0">
+    <renderers>
+        <renderer mime="application/pdf">
+            <fonts>
+                <font kerning="yes" embed-url="/tmp/fonts/RobotoCondensed-Regular.ttf">
+                    <font-triplet name="RobotoCondensedRegular" style="normal" weight="normal"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/RobotoCondensed-Bold.ttf">
+                    <font-triplet name="RobotoCondensedRegular" style="normal" weight="bold"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/MaterialIcons-Regular.ttf">
+                    <font-triplet name="MaterialIcons" style="normal" weight="normal"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/Montserrat-Regular.ttf">
+                    <font-triplet name="Montserrat" style="normal" weight="normal"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/Montserrat-Bold.ttf">
+                    <font-triplet name="Montserrat" style="normal" weight="bold"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/Raleway-Regular.ttf">
+                    <font-triplet name="Raleway" style="normal" weight="normal"/>
+                </font>
+                <font kerning="yes" embed-url="/tmp/fonts/Raleway-Bold.ttf">
+                    <font-triplet name="Raleway" style="normal" weight="bold"/>
+                </font>
+            </fonts>
+        </renderer>
+    </renderers>
+</fop>

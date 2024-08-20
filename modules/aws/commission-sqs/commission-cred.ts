@@ -40,6 +40,9 @@ const loginWithCredentials = async (apiUrl: string, credentials: Credential, caC
         keepAliveMsecs: 1000
     });
 
+    console.log(credentials.username);
+    console.log(credentials.password);
+
     const config = {
         headers: {
             Authorization: `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')}`
@@ -76,6 +79,7 @@ const updateCredentialsOnRouter = async (fqdn: string, routerDetails: RouterDeta
     let success: boolean = false;
 
     const newCredential = routerDetails.credentials.find(c => c.username === 'api');
+    console.log(newCredential);
     if (newCredential) {
         console.log("Trying new credentials");
         ({ config, success } = await loginWithCredentials(apiUrl, newCredential, caCert));
@@ -108,7 +112,7 @@ const updateCredentialsOnRouter = async (fqdn: string, routerDetails: RouterDeta
             if (existingUser) {
                 // Update user password
                 console.log(`Updating: `)
-                await axios.patch(`${apiUrl}/user/${existingUser['.id']}`, {password: credential.password}, config);
+                await axios.patch(`${apiUrl}/user/${existingUser['.id']}`, {password: credential.password, group: credential.username === 'admin' ? 'full' : credential.username}, config);
             } else {
                 console.log(`Adding: `);
                 // Add new user

@@ -78,14 +78,7 @@ export abstract class BaseAssetComponent implements OnChanges, ControlValueAcces
 
 
 export abstract class EditableBaseComponent {
-  isEditMode = false;
-  toggleEditMode(): void {
-    this.isEditMode = !this.isEditMode;
-    if (!this.isEditMode) {
-      // this.mergeAssetWithFormValues();
-      // this.onChange(this.element);
-    }
-  }
+  dataSource: AssetDataElement[] = [];
 
   public abstract save(): void ;
 }

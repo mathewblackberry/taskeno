@@ -5,9 +5,10 @@ import {MatButtonModule, MatIconButton} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatTableModule} from '@angular/material/table';
-import {Asset, AssetDataElement} from '../models/model';
+import {Asset} from '../models/model';
 import {PasswordFieldComponent} from '../password-field.component';
 import {EditableBaseComponent} from './base-asset';
+import {ArrayEditorComponent} from './ip-list-component';
 
 @Component({
   selector: 'app-mobile-details',
@@ -20,16 +21,10 @@ import {EditableBaseComponent} from './base-asset';
     MatIconModule,
     MatIconButton,
     MatInputModule,
-    CommonModule
+    CommonModule,
+    ArrayEditorComponent
   ],
   template: `
-    <button mat-icon-button (click)="toggleEditMode()" class="edit-button">
-      @if (isEditMode) {
-        <mat-icon>close</mat-icon>
-      } @else {
-        <mat-icon>edit</mat-icon>
-      }
-    </button>
     <form [formGroup]="mobileDetailsForm">
       <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 no-header">
         <!-- Label Column -->
@@ -44,6 +39,9 @@ import {EditableBaseComponent} from './base-asset';
           <td mat-cell *matCellDef="let element" class="value-column">
             @if (isEditMode) {
               @switch (element.field) {
+                @case('framedRoutes'){
+                  <app-ip-list-editor component="framedRoutes" [formGroup]="mobileDetailsForm" type="cidr range"></app-ip-list-editor>
+                }
                 @default {
                   <!--                  <div formGroupName="routerDetails">-->
 
@@ -61,16 +59,15 @@ import {EditableBaseComponent} from './base-asset';
                     @if (mobileDetailsForm.get(element.field)?.hasError('pattern')) {
                       <mat-error>Invalid format</mat-error>
                     }
-
                   </mat-form-field>
                   <!--                  </div>-->
                 }
               }
             } @else {
               @if (element.label.toLowerCase().includes('password') || element.label === 'PUK') {
-                <app-password-field [password]="element.value"></app-password-field>
+                <app-password-field [password]="mobileDetailsForm.get(element.field)?.value"></app-password-field>
               } @else {
-                {{ element.value }}
+                {{ mobileDetailsForm.get(element.field)?.value }}
               }
             }
           </td>
@@ -79,9 +76,6 @@ import {EditableBaseComponent} from './base-asset';
         <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="value-column"></tr>
       </table>
     </form>
-
-    <button mat-stroked-button class="edit-button" (click)="save()" [ngStyle]="{display: isEditMode ? 'block' : 'none'}" [disabled]="mobileDetailsForm.invalid">Save</button>
-
   `,
   styleUrl: './view.scss',
   styles: [``],
@@ -101,8 +95,9 @@ import {EditableBaseComponent} from './base-asset';
 export class MobileDetailsComponent extends EditableBaseComponent implements OnInit {
   @Input() displayedColumns: string[] = ['label', 'value'];
   @Input({required: true}) asset: Asset;
-  @Input() mobileDetailsForm: FormGroup;
-  dataSource: AssetDataElement[] = [];
+  @Input({required: true}) mobileDetailsForm: FormGroup;
+  @Input() isEditMode = false;
+
 
   ngOnInit(): void {
     if (this.mobileDetailsForm) {
@@ -113,7 +108,9 @@ export class MobileDetailsComponent extends EditableBaseComponent implements OnI
         {label: 'Last Name', field: 'lastName', value: this.mobileDetailsForm.get('lastName')?.value},
         {label: 'SIM Serial', field: 'simSerial', value: this.mobileDetailsForm.get('simSerial')?.value},
         {label: 'Mobile Number', field: 'mobileNumber', value: this.mobileDetailsForm.get('mobileNumber')?.value},
-        {label: 'PUK', field: 'PUK', value: this.mobileDetailsForm.get('PUK')?.value}
+        {label: 'PUK', field: 'PUK', value: this.mobileDetailsForm.get('PUK')?.value},
+        {label: 'Framed IP', field: 'framedIP', value: this.mobileDetailsForm.get('framedIP')?.value},
+        {label: 'Framed Routes', field: 'framedRoutes', value: this.mobileDetailsForm.get('framedRoutes')?.value.join(', ')}
       ];
     }
   }

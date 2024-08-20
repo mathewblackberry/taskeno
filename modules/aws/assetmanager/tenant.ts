@@ -4,6 +4,7 @@ import {activateAsset} from './activate_asset';
 import {getChartData} from './chart';
 import {commissionAsset} from './commission';
 import {processConfigRequest} from './config';
+import {generateInvoicesForTenant} from './invoice-generator';
 import {processKenoChildRequest} from './tenant.child';
 
 /**
@@ -28,17 +29,22 @@ export const lambdaHandler: APIGatewayProxyHandler = async (event: APIGatewayPro
     if ((pathComponents.length >= 2)) {
         if (pathComponents[1] === 'tenant')
             return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'TENANT', -1, role)};
+
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'commission'))
             return {...response, ...await commissionAsset(pathComponents)};
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'activateasset'))
-            return {...response, ...await activateAsset(pathComponents, true)};
+            return {...response, ...await activateAsset(pathComponents, true, event.body)};
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'deactivateasset'))
-            return {...response, ...await activateAsset(pathComponents, false)};
+            return {...response, ...await activateAsset(pathComponents, false, event.body)};
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'asset'))
             return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'SITE#', 'ASSET#', 2, role)};
-        else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'assetchart')) {
+        else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'assetchart'))
             return {...response, ...await getChartData(body)};
-        } else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'assetconfig')) {
+        else if ((pathComponents[1] === 'asset') && (pathComponents[3] === 'comment'))
+            return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'ASSET#', 'COMMENT#', 2, role)};
+        else if ((pathComponents[1] === 'rate'))
+            return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'RATE#', 0, role)};
+        else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'assetconfig')) {
             const routerDetails = await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'SITE#', 'ASSET#', 2, role);
             const siteDetails = await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'SITE#', 0, role);
             const bucketName: string = process.env.S3_CONFIG_BUCKET!;
@@ -47,6 +53,13 @@ export const lambdaHandler: APIGatewayProxyHandler = async (event: APIGatewayPro
             return r;
         } else if (pathComponents[1] === 'site')
             return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'SITE#', 0, role)};
+    }
+
+    if (pathComponents[1] === 'invoice' && event.httpMethod === 'POST') {
+        if (role !== 'admin') {
+            return {...response, ...{statusCode: 403, body: JSON.stringify({message: 'Forbidden'})}};
+        }
+        return {...response, ...await generateInvoicesForTenant(pathComponents[0], '2024-07-31T14:00:00Z', '2024-08-31T13:59:59Z', TABLE_NAME, '2024-08-14T14:00:00Z', 'INV-034', 9823)};
     }
 
     if (!event.body) {

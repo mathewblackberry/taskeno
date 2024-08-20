@@ -11,9 +11,12 @@
   </div>
   <div class="search-bar">
     <div class="search-field">
+      @if(fSites.length > 1){
       <button mat-icon-button (click)="selectPreviousSite()" [matTooltip]="previousSiteName">
         <mat-icon>navigate_before</mat-icon>
       </button>
+      }
+
       <mat-form-field appearance="outline" style="width: 100%" subscriptSizing="dynamic">
         <mat-icon matIconPrefix>search</mat-icon>
         <input type="text" matInput [formControl]="siteControl" [matAutocomplete]="auto" placeholder="Search Sites"
@@ -26,9 +29,11 @@
           </mat-option>
         </mat-autocomplete>
       </mat-form-field>
+      @if(fSites.length > 1){
       <button mat-icon-button (click)="selectNextSite()" [matTooltip]="nextSiteName">
         <mat-icon>navigate_next</mat-icon>
       </button>
+      }
     </div>
 
     @if (selectedSite) {
@@ -43,36 +48,77 @@
       </div>
     }
   </div>
+  @if (authService.isAdmin$ | async) {
+    <mat-toolbar>
+      @if (isEditMode) {
+        <button mat-icon-button (click)="updateAsset()" [disabled]="!assetForm.valid || !selectedAsset">
+          <mat-icon>save</mat-icon>
+        </button>
+      }
+      <span class="spacer"></span>
+      <button mat-icon-button (click)="toggleEditMode()" class="edit-button">
+        @if (isEditMode) {
+          <mat-icon>check</mat-icon>
+        } @else {
+          <mat-icon>edit</mat-icon>
+        }
+      </button>
+    </mat-toolbar>
+  }
   @if (selectedAsset) {
     <div class="details-section">
       <mat-tab-group class="full-height">
-        <mat-tab label="Live Tools">
-          <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
-        </mat-tab>
         <mat-tab label="General">
-          <app-router-general [asset]="selectedAsset" [(ngModel)]="selectedAsset"/>
+          <ng-template mat-tab-label>
+            @if (routerGeneralForm.invalid) {
+              <mat-icon class="tab-icon" color="warn">error</mat-icon>
+            } General
+          </ng-template>
+          <app-router-general [isEditMode]=isEditMode [routerGeneralForm]="routerGeneralForm" [asset]="selectedAsset"/>
         </mat-tab>
-        <mat-tab label="Router Details" *ngIf="selectedAsset.routerDetails">
-          @if (selectedAsset.routerDetails) {
-            <app-router-details [asset]="selectedAsset" [(ngModel)]="selectedAsset.routerDetails" [site]="selectedSite!"/>
-          }
-        </mat-tab>
+        @if (selectedAsset.routerDetails) {
+          <mat-tab>
+            <ng-template mat-tab-label>
+              @if (routerDetailsForm.invalid) {
+                <mat-icon class="tab-icon" color="warn">error</mat-icon>
+              }Router Details
+            </ng-template>
+            @if (selectedAsset.routerDetails) {
+              <app-router-details [isEditMode]=isEditMode [asset]="selectedAsset" [routerDetailsForm]="routerDetailsForm" [site]="selectedSite!"/>
+            }
+          </mat-tab>
+        }
         @if (selectedAsset && selectedAsset.routerDetails && selectedAsset.routerDetails.mobileDetails) {
-          <mat-tab label="Mobile Details">
+          <mat-tab>
+            <ng-template mat-tab-label>
+              @if (mobileDetailsForm.invalid) {
+                <mat-icon class="tab-icon" color="warn">error</mat-icon>
+              }
+              Mobile Details
+            </ng-template>
             <form [formGroup]="assetForm">
               <ng-container formGroupName="routerDetails">
-                <app-mobile-details [asset]="selectedAsset" [mobileDetailsForm]="mobileDetailsForm"/>
+                <app-mobile-details [isEditMode]=isEditMode [asset]="selectedAsset" [mobileDetailsForm]="mobileDetailsForm"/>
               </ng-container>
             </form>
           </mat-tab>
-
         }
-        <mat-tab label="LAN Subnets" *ngIf="selectedAsset.lanSubnets">
-          <app-lan-subnets [selectedAsset]="selectedAsset"/>
+        @if (selectedAsset.lanSubnets) {
+          <mat-tab label="LAN Subnets">
+            <app-lan-subnets [isEditMode]=isEditMode [formGroup]="routerGeneralForm" [selectedAsset]="selectedAsset" (update)="updateAsset()"/>
+          </mat-tab>
+        }
+        <mat-tab label="Live Tools">
+          <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
+        </mat-tab>
+
+        <mat-tab label="Log">
+          <ng-container *ngIf="authService.userName$ | async as userName">
+            <app-comments [comments]="comments" [assetId]="selectedAsset.id" [currentUser]="userName"/>
+          </ng-container>
         </mat-tab>
       </mat-tab-group>
     </div>
   }
-  <button mat-stroked-button (click)="show()">Show!</button>
 </div>
 

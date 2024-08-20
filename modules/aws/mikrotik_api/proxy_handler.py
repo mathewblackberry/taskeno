@@ -38,6 +38,13 @@ def cleanup_temp_file():
 
 atexit.register(cleanup_temp_file)
 
+def get_credential_by_username(router_details, username):
+    for credential in router_details.get("credentials", []):
+        if credential.get("username") == username:
+            return credential
+    return None
+
+
 
 def lambda_handler(event, context):
     print(temp_ca_cert_path)
@@ -72,38 +79,44 @@ def lambda_handler(event, context):
             if 'Item' in response:
                 item = response['Item']
                 data = item.get('data', None)
-                print(data.get('loopbacks'))
                 loopbacks = data.get('loopbacks', [])
                 hostname = data.get('hostname')
+                router_details = data.get("routerDetails", {})
+                api_credential = get_credential_by_username(router_details, "api")
+                password = api_credential.get("password") if api_credential else None
+
+                if password is None and command != 'csr':
+                    return {'statusCode': 404, 'body': json.dumps({'message': 'Router is not commissioned'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
+
                 if len(loopbacks) > 0:
                     loopback = loopbacks[0]
                 else:
-                    return {'statusCode': 404, 'body': json.dumps({'error': 'Item not found'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
+                    return {'statusCode': 404, 'body': json.dumps({'message': 'Item not found'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
             else:
-                response = {'statusCode': 404, 'body': json.dumps({'error': 'Item not found'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
+                response = {'statusCode': 404, 'body': json.dumps({'message': 'Item not found'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
                 return response
 
         except Exception as e:
             print('Exception 1')
             print(e)
-            response = {'statusCode': 500, 'body': json.dumps({'error': str(e)}), 'headers': {'Access-Control-Allow-Origin': '*'}}
+            response = {'statusCode': 500, 'body': json.dumps({'message': str(e)}), 'headers': {'Access-Control-Allow-Origin': '*'}}
             return response
 
         # Route based on path and method
         if command == 'radius' and http_method == 'GET':
             response = update_radius()
         elif command == 'route_table' and http_method == 'GET':
-            response = complete_get('/ip/route', temp_ca_cert_path, loopback)
+            response = complete_get('/ip/route', temp_ca_cert_path, loopback, password)
         elif command == 'arp_table' and http_method == 'GET':
-            response = complete_get('/ip/arp', temp_ca_cert_path, loopback)
+            response = complete_get('/ip/arp', temp_ca_cert_path, loopback, password)
         elif command == 'interface' and http_method == 'GET':
-            response = complete_get('/interface', temp_ca_cert_path, loopback)
+            response = complete_get('/interface', temp_ca_cert_path, loopback, password)
         elif command == 'ip_address' and http_method == 'GET':
-            response = complete_get('/ip/address', temp_ca_cert_path, loopback)
+            response = complete_get('/ip/address', temp_ca_cert_path, loopback, password)
         elif command == 'ip_firewall' and http_method == 'GET':
-            response = complete_get('/ip/firewall/filter', temp_ca_cert_path, loopback)
+            response = complete_get('/ip/firewall/filter', temp_ca_cert_path, loopback, password)
         elif command == 'ip_firewall_address' and http_method == 'GET':
-            response = complete_get('/ip/firewall/address-list', temp_ca_cert_path, loopback)
+            response = complete_get('/ip/firewall/address-list', temp_ca_cert_path, loopback, password)
         elif command == 'csr' and http_method == 'PUT':
             print('Generating Certificate')
             response = doit(loopback, hostname)

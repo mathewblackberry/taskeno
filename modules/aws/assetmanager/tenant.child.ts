@@ -1,6 +1,7 @@
 import {APIGatewayProxyResult} from 'aws-lambda';
 import {v4 as uuid} from 'uuid';
 import {
+    DeleteCommand,
     GetCommand,
     GetCommandInput,
     GetCommandOutput,
@@ -25,19 +26,23 @@ export const processKenoChildRequest = async (
         if (parentId == null) throw new InputValidationError('Incorrectly formed request');
         switch (method) {
             case 'POST':
-                if (role !== 'admin')
+                if (role === 'admin' || SK_PREFIX === 'comment') {
+                    return await handleCreateRequest(body, tenantId, parentId, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
+                } else {
                     return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
-                return await handleCreateRequest(body, tenantId, parentId, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
+                }
             case 'GET':
                 return await handleGetRequest(pathParameters, TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX, baseIndex, role);
             case 'PUT':
-                if (role !== 'admin')
+                if (role === 'admin' || SK_PREFIX === 'comment') {
+                    return await handleUpdateRequest(body, tenantId, parentId, pathParameters[baseIndex + 2], TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
+                } else {
                     return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
-                return await handleUpdateRequest(body, tenantId, parentId, pathParameters[baseIndex + 2], TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
+                }
             case 'DELETE':
                 if (role !== 'admin')
                     return {statusCode: 403, body: JSON.stringify({message: 'Forbidden'})};
-                return {statusCode: 405, body: JSON.stringify({message: 'Not allowed'})};
+                return await handleDeleteRequest(tenantId, parentId, pathParameters[baseIndex + 2], TABLE_NAME, ddbClient, PK_PREFIX, SK_PREFIX);
             default:
                 return {statusCode: 400, body: JSON.stringify({message: 'Invalid operation'})};
         }
@@ -53,7 +58,10 @@ const handleCreateRequest = async (body: any, tenantId: string, parentId: string
     if (!body || Object.keys(body).length === 0) {
         throw new InputValidationError('Invalid body content');
     }
-    const id = uuid();
+    let id = uuid();
+    if (SK_PREFIX === 'COMMENT#')
+        id = new Date().toISOString();
+
     let skId = id;
     if (tenantId === '0' && parentId === '') {
         tenantId = id;
@@ -96,7 +104,7 @@ const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, dd
         const results: QueryCommandOutput = await ddbClient.send(new QueryCommand(params));
         let out = results.Items?.filter(item => item.tenantId === pathParameters[0]).map(item => item.data);
 
-        if(role !== 'admin'){
+        if (role !== 'admin') {
             out = removeFields(out, ['password'])
         }
 
@@ -116,11 +124,11 @@ const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, dd
         throw new Error('Item not found');
     }
 
-    if(role !== 'admin'){
+    if (role !== 'admin') {
         data.Item.data = removeFields(data.Item.data, ['password'])
     }
 
-    if(data.Item.tenantId !== pathParameters[0]){
+    if (data.Item.tenantId !== pathParameters[0]) {
         throw new Error('Item not found');
     }
     return {statusCode: 200, body: JSON.stringify(data.Item.data)};
@@ -182,7 +190,39 @@ const handleUpdateRequest = async (body: any, tenantId: string, parentId: string
         }
     }
 
-    return {statusCode: 204, body: ''};
+    return {statusCode: 200, body: JSON.stringify({message: 'Update completed successfully'})};
+};
+
+const handleDeleteRequest = async (
+    tenantId: string, parentId: string, skId: string,
+    TABLE_NAME: string, ddbClient: DynamoDBClient, PK_PREFIX: string, SK_PREFIX: string
+): Promise<APIGatewayProxyResult> => {
+    if (!tenantId || !parentId || !skId) {
+        throw new InputValidationError('Missing required parameters');
+    }
+
+    const deleteParams = {
+        TableName: TABLE_NAME,
+        Key: {
+            pk: `${PK_PREFIX}${parentId}`,
+            sk: `${SK_PREFIX}${skId}`
+        },
+        ConditionExpression: 'tenantId = :tenantId',
+        ExpressionAttributeValues: {
+            ':tenantId': tenantId
+        }
+    };
+
+    try {
+        await ddbClient.send(new DeleteCommand(deleteParams));
+        return {statusCode: 200, body: JSON.stringify({message: 'Item deleted successfully'})};
+    } catch (error: any) {
+        console.error(`Error deleting item: ${JSON.stringify(error, null, 2)}`);
+        if (error.name === 'ConditionalCheckFailedException') {
+            return {statusCode: 404, body: JSON.stringify({message: 'Item not found or unauthorized'})};
+        }
+        return handleError(error);
+    }
 };
 
 const removeFields = (obj: any, fieldsToRemove: string[]): any => {

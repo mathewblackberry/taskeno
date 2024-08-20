@@ -17,8 +17,6 @@ export const getChartData = async (body: any): Promise<APIGatewayProxyResult> =>
 
     const influxdbUrl = 'http://172.27.251.10:8086/query';
 
-    console.log(host, port, timeRange);
-    console.log(influxdbUrl);
 
     const queries = {
         inoctets: `SELECT non_negative_derivative(sum("inoctets"),1s)*8 FROM "traffic" WHERE "host"='${host}' and "interface"='${port}' AND time > now() - ${timeRange} GROUP BY time(10s) fill(null)`,
@@ -31,9 +29,7 @@ export const getChartData = async (body: any): Promise<APIGatewayProxyResult> =>
             url.searchParams.append('db', 'links');
             url.searchParams.append('q', query);
 
-            console.log(url);
             http.get(url.toString(), (res) => {
-                console.log('getting repsonse');
                 let data = '';
 
                 res.on('data', chunk => data += chunk);
@@ -47,15 +43,11 @@ export const getChartData = async (body: any): Promise<APIGatewayProxyResult> =>
             }).on('error', err => reject(err));
         });
     };
-    console.log('pre try');
     try {
-        console.log('in try');
         const [inoctets, outoctets] = await Promise.all([
             queryInfluxDB(queries.inoctets),
             queryInfluxDB(queries.outoctets)
         ]);
-        console.log('after promise all');
-        console.log(inoctets);
         return {
             statusCode: 200,
             headers: {
@@ -68,7 +60,8 @@ export const getChartData = async (body: any): Promise<APIGatewayProxyResult> =>
         return {
             statusCode: 500,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
             },
             body: JSON.stringify({ message: (error as Error).message })
         };

@@ -26,14 +26,18 @@ import {FirewallsComponent} from './mikrotik/firewall.component';
 import {InterfacesComponent} from './mikrotik/interface.component';
 import {IPAddressesComponent} from './mikrotik/ipaddress.component';
 import {RoutetableComponent} from './mikrotik/routetable.component';
-import {Asset, Host, MobileDetails, RouterDetails, Site, SubnetDetails, Credential} from './models/model';
+import {Asset, Comment, Credential, Host, MobileDetails, RouterDetails, Site, SubnetDetails} from './models/model';
 import {PasswordFieldComponent} from './password-field.component';
+import {AuthService} from './services/auth-service';
 import {SiteAssetService} from './services/site-asset-service';
 import {TileComponent} from './tile.component';
+import {IPValidators} from './validators/ip-cidr-validator';
+import {CommentsComponent} from './view/comment.component';
 import {LanSubnetsComponent} from './view/lan-subnets.component';
 import {LiveToolsComponent} from './view/live-tools.component';
 import {MobileDetailsComponent} from './view/mobile-details.component';
 import {RouterDetailsComponent} from './view/router-details.component';
+
 import {RouterGeneralComponent} from './view/router-general.component';
 
 @Component({
@@ -42,7 +46,8 @@ import {RouterGeneralComponent} from './view/router-general.component';
   styleUrl: './site-list.component.scss',
   imports: [MatListModule, CommonModule, MatTabsModule, MatInputModule, MatAutocompleteModule, ReactiveFormsModule, FormsModule, MatCardModule, MatButtonModule,
     MatIconModule, MatTableModule, MatExpansionModule, CodeDisplayComponent, MatSelectModule, MatToolbarModule, PasswordFieldComponent, RoutetableComponent, MatTooltipModule,
-    InterfacesComponent, IPAddressesComponent, ArpsComponent, FirewallsComponent, AddresssComponent, ChartComponent, TileComponent, RouterDetailsComponent, MobileDetailsComponent, LanSubnetsComponent, RouterGeneralComponent, LiveToolsComponent, MatSlideToggleModule],
+    InterfacesComponent, IPAddressesComponent, ArpsComponent, FirewallsComponent, AddresssComponent, ChartComponent, TileComponent, RouterDetailsComponent, MobileDetailsComponent,
+    LanSubnetsComponent, RouterGeneralComponent, LiveToolsComponent, MatSlideToggleModule, CommentsComponent],
   standalone: true
 })
 export class SiteListComponent implements OnInit {
@@ -53,11 +58,15 @@ export class SiteListComponent implements OnInit {
   filteredSites: Observable<Site[]>;
   selectedSite: Site | null = null;
   assets: Asset[] = [];
+  comments: Comment[] = [];
   selectedAsset: Asset | null = null;
   nextSiteName: string = '';
   previousSiteName: string = '';
   authenticator: AuthenticatorService = inject(AuthenticatorService);
   showActiveOnly = true;
+  isEditMode: boolean = false;
+
+  authService: AuthService = inject(AuthService);
 
   constructor(private siteAssetService: SiteAssetService, private fb: FormBuilder) {
     this.assetForm = this.createAssetForm();
@@ -65,6 +74,18 @@ export class SiteListComponent implements OnInit {
 
   get mobileDetailsForm(): FormGroup {
     return this.assetForm.get('routerDetails.mobileDetails') as FormGroup;
+  }
+
+  get routerDetailsForm(): FormGroup {
+    return this.assetForm.get('routerDetails') as FormGroup;
+  }
+
+  get routerGeneralForm(): FormGroup {
+    return this.assetForm;
+  }
+
+  get lanSubnets(): FormArray {
+    return this.assetForm.get('lanSubnets') as FormArray;
   }
 
   ngOnInit(): void {
@@ -76,17 +97,17 @@ export class SiteListComponent implements OnInit {
         this.sites = sites.sort((a: Site, b: Site) => a.name.localeCompare(b.name));
         this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => typeof value === 'string' ? value : value?.name), map(name => name ? this._filterSites(name) : this.sites.slice()));
         this.updateFilteredSites();
-        // if(sites.length > 0) {
-        //   this.onSelectSite(sites[0]);
-        //   this.siteControl.setValue(sites[0], { emitEvent: false });
-        // }
+        this.selectNextSite();
       });
     });
 
     // Initialize the form group with the structure of selectedAsset.routerDetails.mobileDetails
 
-
   }
+
+  toggleEditMode(): void {
+    this.isEditMode = !this.isEditMode;
+  };
 
   private _filterSites(value: string): Site[] {
     const filterValue = value.toLowerCase();
@@ -108,45 +129,31 @@ export class SiteListComponent implements OnInit {
     );
     this.filteredSites.subscribe(filtered => {
       this.fSites = filtered;
-      if (filtered.length > 0) {
-        this.onSelectSite(filtered[0]);
-        this.siteControl.setValue(filtered[0], {emitEvent: false});
-      }
     });
   }
 
   onSelectSite(site: Site): void {
+    this.isEditMode = false
     this.selectedSite = site;
     this.updateTooltipValues();
     this.siteAssetService.getAssets(site.id).subscribe(assets => {
       this.assets = assets;
       if (assets)
         this.onSelectAsset(assets[0])
-      else
+      else {
         this.selectedAsset = null;
+        this.comments = [];
+      }
     });
   }
 
   onSelectAsset(asset: Asset): void {
+    this.comments = [];
     this.selectedAsset = asset;
-
-    this.assetForm.patchValue({
-      id: asset.id,
-      hostname: asset.hostname,
-      terminals: asset.terminals,
-      carriageType: asset.carriageType,
-      carriageFNN: asset.carriageFNN,
-      carriagePort: asset.carriagePort,
-      FNN: asset.FNN,
-      POI: asset.POI,
-      active: asset.active
+    this.setAssetFormData(asset, this.assetForm);
+    this.siteAssetService.getComments(asset.id).subscribe(comments => {
+      this.comments = comments;
     });
-
-    this.setSubnetDetailsArray(this.assetForm.get('lanSubnets') as FormArray, asset.lanSubnets);
-    this.setIPv4CidrRangeArray(this.assetForm.get('wanSubnets') as FormArray, asset.wanSubnets);
-    this.setIPv4CidrRangeArray(this.assetForm.get('loopbacks') as FormArray, asset.loopbacks);
-    this.setRouterDetailsForm(this.assetForm.get('routerDetails') as FormGroup, asset.routerDetails);
-
   }
 
   onSelectAssetChanged(event: MatSelectChange) {
@@ -158,10 +165,12 @@ export class SiteListComponent implements OnInit {
   }
 
   selectNextSite() {
+    this.isEditMode = false;
     let site: Site | null = null;
     if (!this.selectedSite) {
       site = this.fSites[0];
     } else {
+      console.log(JSON.stringify(this.fSites,null,2));
       const currentIndex = this.fSites.findIndex(site => site.id === this.selectedSite!.id);
       const nextIndex = (currentIndex + 1) % this.fSites.length;
       site = this.fSites[nextIndex];
@@ -196,11 +205,6 @@ export class SiteListComponent implements OnInit {
     }
   }
 
-  show() {
-    console.log(JSON.stringify(this.assetForm.value, null, 2));
-  }
-
-
   createAssetForm(): FormGroup {
     return this.fb.group({
       id: [''],
@@ -220,48 +224,52 @@ export class SiteListComponent implements OnInit {
   }
 
   setAssetFormData(asset: Asset, form: FormGroup): void {
-    form.patchValue({
-      id: asset.id,
-      hostname: asset.hostname,
-      terminals: asset.terminals,
-      carriageType: asset.carriageType,
-      carriageFNN: asset.carriageFNN,
-      carriagePort: asset.carriagePort,
-      FNN: asset.FNN,
-      POI: asset.POI,
-      active: asset.active
+    Object.keys(form.controls).forEach(key => {
+      if (form.get(key) instanceof FormArray) {
+        (form.get(key) as FormArray).clear();
+      } else {
+        form.removeControl(key);
+      }
     });
 
-    this.setSubnetDetailsArray(form.get('lanSubnets') as FormArray, asset.lanSubnets);
-    this.setIPv4CidrRangeArray(form.get('wanSubnets') as FormArray, asset.wanSubnets);
-    this.setIPv4CidrRangeArray(form.get('loopbacks') as FormArray, asset.loopbacks);
-    this.setRouterDetailsForm(form.get('routerDetails') as FormGroup, asset.routerDetails);
-  }
+    form.addControl('id', new FormControl(asset.id));
+    form.addControl('hostname', new FormControl(asset.hostname));
+    form.addControl('terminals', new FormControl(asset.terminals));
+    form.addControl('carriageType', new FormControl(asset.carriageType));
+    form.addControl('carriageFNN', new FormControl(asset.carriageFNN ?? 'N/A'));
+    form.addControl('carriagePort', new FormControl(asset.carriagePort ?? 'N/A'));
+    form.addControl('FNN', new FormControl(asset.FNN));
+    form.addControl('POI', new FormControl(asset.POI));
+    form.addControl('active', new FormControl(asset.active));
+    form.addControl('lanSubnets', new FormArray([]));
+    form.addControl('wanSubnets', new FormArray([]));
+    form.addControl('loopbacks', new FormArray([]));
+    form.addControl('routerDetails', this.createRouterDetailsForm());
 
-  createSubnetDetailsArray(): FormArray {
-    return this.fb.array([]);
+    this.setSubnetDetailsArray(this.assetForm.get('lanSubnets') as FormArray, asset.lanSubnets);
+    this.setIPv4CidrRangeArray(this.assetForm.get('wanSubnets') as FormArray, asset.wanSubnets, 'cidr notation');
+    this.setIPv4CidrRangeArray(this.assetForm.get('loopbacks') as FormArray, asset.loopbacks, 'ip');
+    this.setRouterDetailsForm(this.assetForm.get('routerDetails') as FormGroup, asset.routerDetails);
   }
 
   setSubnetDetailsArray(array: FormArray, subnets: SubnetDetails[]): void {
     subnets.forEach(subnet => array.push(this.fb.group({
-      subnet: [subnet.subnet.toString(), Validators.required],
+      subnet: [subnet.subnet.toString(), [Validators.required, IPValidators.ipCidrValidator('cidr range')]],
       hosts: this.fb.array(this.createHostArray(subnet.hosts))
     })));
   }
 
-  createIPv4CidrRangeArray(): FormArray {
-    return this.fb.array([]);
-  }
-
-  setIPv4CidrRangeArray(array: FormArray, ranges: IPv4CidrRange[]): void {
-    ranges.forEach(range => array.push(this.fb.control(range.toString(), Validators.required)));
+  setIPv4CidrRangeArray(array: FormArray, ranges: IPv4CidrRange[], type: 'ip' | 'cidr range' | 'cidr notation'): void {
+    if (!ranges)
+      ranges = [];
+    ranges.forEach(range => array.push(this.fb.control(range.toString(), [Validators.required, IPValidators.ipCidrValidator(type)])));
   }
 
   createRouterDetailsForm(): FormGroup {
     return this.fb.group({
       defaultCredentials: this.createCredentialForm(),
       credentials: this.fb.array([]),
-      serialNumber: ['', Validators.required],
+      serialNumber: [''],
       model: ['', Validators.required],
       manufacturer: ['', Validators.required],
       mobileDetails: this.createMobileDetailsForm()
@@ -275,13 +283,14 @@ export class SiteListComponent implements OnInit {
       model: routerDetails.model,
       manufacturer: routerDetails.manufacturer
     });
+    this.setDefaultCredentialForm(form.get('defaultCredentials') as FormGroup, routerDetails.defaultCredentials);
     this.setCredentialsArray(form.get('credentials') as FormArray, routerDetails.credentials);
     this.setMobileDetailsForm(form.get('mobileDetails') as FormGroup, routerDetails.mobileDetails);
   }
 
   createCredentialForm(): FormGroup {
     return this.fb.group({
-      username: ['', Validators.required],
+      username: [''],
       password: [''],
       purpose: ['']
     });
@@ -295,16 +304,25 @@ export class SiteListComponent implements OnInit {
     });
   }
 
+  setDefaultCredentialForm(form: FormGroup, credential?: Credential): void {
+    if (!credential) return;
+    form.patchValue({
+      username: credential.username,
+      password: credential.password,
+      purpose: credential.purpose
+    });
+  }
+
   createMobileDetailsForm(): FormGroup {
     return this.fb.group({
       username: [''],
       password: [''],
       firstName: [''],
       lastName: [''],
-      framedIP: [''],
+      framedIP: ['',[IPValidators.ipCidrValidator('ip')]],
       framedRoutes: this.fb.array([]),
-      simSerial: ['', Validators.required],
-      mobileNumber: [''],
+      simSerial: ['', Validators.pattern(/^\d{4}\s?\d{4}\s?\d{4}\s?\dN$/)],
+      mobileNumber: ['', Validators.pattern(/^\d{3,4}\s?\d{3}\s?\d{3}$/)],
       PUK: ['']
     });
   }
@@ -321,19 +339,23 @@ export class SiteListComponent implements OnInit {
       mobileNumber: mobileDetails.mobileNumber,
       PUK: mobileDetails.PUK
     });
-    this.setIPv4CidrRangeArray(form.get('framedRoutes') as FormArray, mobileDetails.framedRoutes || []);
+    this.setIPv4CidrRangeArray(form.get('framedRoutes') as FormArray, mobileDetails.framedRoutes || [], 'cidr range');
   }
 
   createHostArray(hosts: Host[]): FormGroup[] {
     return hosts.map(host => this.fb.group({
       ip: [host.ip.toString(), Validators.required],
-      name: [host.name, Validators.required],
-      active: [host.active],
-      defaultGateway: [host.defaultGateway],
-      network: [host.network],
-      broadcast: [host.broadcast]
+      name: [host.name],
+      active: [host.active]
     }));
   }
 
-  protected readonly FormGroup = FormGroup;
+  updateAsset() {
+    this.siteAssetService.updateAsset(this.selectedSite!.id, this.selectedAsset!.id, this.assetForm.value).subscribe(
+      response => {
+        this.isEditMode = false;
+      });
+
+  }
+
 }

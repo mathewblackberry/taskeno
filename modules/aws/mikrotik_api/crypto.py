@@ -228,6 +228,7 @@ def connect_to_mikrotik(username, password, host, port=8728):
     )
 
 
+
 def load_ca_private_key_from_env():
     # Retrieve CA private key as a single-line string from environment variable
     ca_private_key_pem = os.getenv('CA_PRIVATE_KEY')
@@ -271,6 +272,7 @@ def doit(host, hostname):
     print(host)
     print(hostname)
     api = connect_to_mikrotik(username, password, host)
+    print('connected')
     cert_name = 'bsi'
     common_name = f'{hostname}.nms.blacksaltit.com.au'
     # Generate CSR on MikroTik

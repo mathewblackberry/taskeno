@@ -7,6 +7,11 @@ export class Tenant {
   email: string;
   phone: string;
   primaryContact: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postcode: string;
 }
 
 export class Site {
@@ -47,9 +52,6 @@ export class Host {
   ip: IPv4;
   name: string;
   active: boolean;
-  defaultGateway?: boolean;
-  network?: boolean;
-  broadcast?: boolean;
 }
 
 export class RouterDetails {
@@ -89,4 +91,31 @@ export type AssetDataElement = {
   min?: number,
   max?: number,
   regexp?: string | RegExp
+}
+
+export class Comment {
+  user: string;
+  id: string | null;
+  comment: string;
+  edited: boolean = false;
+
+  constructor(user: string, comment: string, id: string | null, edited: boolean) {
+    this.user = user;
+    this.comment = comment;
+    this.id = id;
+    this.edited = edited;
+  }
+}
+
+export class InvoiceEvent {
+  eventType: 'ACTIVATED' | 'DEACTIVATED';
+  timestamp: string;
+  rate: Rate
+}
+
+export class Rate {
+  id: string;
+  name: string;
+  upfront: number;
+  ongoing: number;
 }
