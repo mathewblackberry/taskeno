@@ -7,7 +7,7 @@
             <fo:layout-master-set>
                 <fo:simple-page-master master-name="first-page"
                                        page-width="210mm" page-height="297mm"
-                                       margin-top="20mm" margin-bottom="50mm" margin-left="20mm" margin-right="20mm">
+                                       margin-top="20mm" margin-bottom="55mm" margin-left="20mm" margin-right="20mm">
                     <fo:region-body/>
                     <fo:region-before extent="30mm"/>
                     <fo:region-after region-name="xsl-region-after-first"/>
@@ -41,7 +41,7 @@
                                 <fo:table-row>
                                     <fo:table-cell>
                                         <fo:block font-size="16pt" space-before="5mm">PAYMENT ADVICE</fo:block>
-                                        <fo:block>Black Salt IT Pty Ltd</fo:block>
+                                        <fo:block font-weight="bold">Black Salt IT Pty Ltd</fo:block>
                                         <fo:block>30 Richings Dr</fo:block>
                                         <fo:block>YOUNGTOWN TAS 7249</fo:block>
                                         <fo:block><fo:inline font-weight="bold">e:</fo:inline> accounts@blacksaltit.com.au</fo:block>
@@ -58,10 +58,20 @@
                                             <fo:inline font-weight="bold">Account:</fo:inline>
                                             1151 0069
                                         </fo:block>
-                                        <fo:block>
+                                        <fo:block space-before="3mm">
                                             <fo:inline font-weight="bold">Reference:</fo:inline>
                                             <xsl:text> </xsl:text>
                                             <xsl:value-of select="/Invoice/invoiceId"/>
+                                        </fo:block>
+                                        <fo:block>
+                                            <fo:inline font-weight="bold">Amount Due:</fo:inline>
+                                            <xsl:text> </xsl:text>
+                                            $<xsl:value-of select="format-number(Invoice/totalDue, '#,##0.00')"/>
+                                        </fo:block>
+                                        <fo:block>
+                                            <fo:inline font-weight="bold">Due Date:</fo:inline>
+                                            <xsl:text> </xsl:text>
+                                            <xsl:value-of select="/Invoice/dueDate"/>
                                         </fo:block>
                                     </fo:table-cell>
                                 </fo:table-row>
@@ -78,8 +88,8 @@
                 </fo:static-content>
                 <fo:flow flow-name="xsl-region-body" font-family="Raleway">
                     <fo:table table-layout="fixed" width="100%">
-                        <fo:table-column column-width="75mm"/>
-                        <fo:table-column column-width="35mm"/>
+                        <fo:table-column column-width="70mm"/>
+                        <fo:table-column column-width="40mm"/>
                         <fo:table-column column-width="60mm"/>
 
                         <fo:table-body>
@@ -112,16 +122,6 @@
                                                 <xsl:value-of select="Invoice/periodEndDate"/>
                                             </fo:block>
                                         </fo:block>
-
-
-                                        <xsl:if test="Invoice/overdueIncGst != '0.00'">
-                                            <fo:block>
-                                                <fo:block font-size="14pt" font-weight="bold" text-align="center" background-color="#ed1c24" color="#ffffff"
-                                                          padding="2mm">
-                                                    Overdue Amount: $<xsl:value-of select="format-number(Invoice/overdueIncGst, '#,##0.00')"/>
-                                                </fo:block>
-                                            </fo:block>
-                                        </xsl:if>
                                     </fo:block>
                                 </fo:table-cell>
 
@@ -139,10 +139,10 @@
                                                         src="url('https://logo.blacksaltit.com.au/RedLogo/05_Png_TransparentBG/StackedLogo/BlackSaltIT_Red_Stacked_TransparentBG.png')"
                                                         content-width="33mm"/>
                                             </fo:block>
-                                            <fo:block text-align="left" font-size="10pt" space-after="2mm">
-                                                <fo:block>30 Richings Dr.</fo:block>
-                                                <fo:block>YOUNGTOWN, TAS 7249</fo:block>
-                                            </fo:block>
+<!--                                            <fo:block text-align="left" font-size="10pt" space-after="2mm">-->
+<!--                                                <fo:block>30 Richings Dr.</fo:block>-->
+<!--                                                <fo:block>YOUNGTOWN, TAS 7249</fo:block>-->
+<!--                                            </fo:block>-->
                                             <fo:block text-align="left" font-size="10pt" font-weight="bold" space-after="5mm">
                                                 ABN: 63 660 450 564
                                             </fo:block>
@@ -169,9 +169,16 @@
                                 </fo:table-cell>
                             </fo:table-row>
                             <fo:table-row>
-                                <fo:table-cell>
-                                    <fo:block>
-                                        <!-- Spacer -->
+                                <fo:table-cell padding-top="5mm">
+                                    <fo:block space-before="5mm">
+                                        <xsl:if test="Invoice/overdueIncGst != '0.00'">
+                                            <fo:block>
+                                                <fo:block font-size="14pt" font-weight="bold" text-align="center" background-color="#ed1c24" color="#ffffff" padding="2mm">
+                                                    <fo:block font-size="10pt">Overdue Amount:</fo:block>
+                                                    <fo:block text-align="center" space-before="1mm">$<xsl:value-of select="format-number(Invoice/overdueIncGst, '#,##0.00')"/></fo:block>
+                                                </fo:block>
+                                            </fo:block>
+                                        </xsl:if>
                                     </fo:block>
                                 </fo:table-cell>
                                 <fo:table-cell>
