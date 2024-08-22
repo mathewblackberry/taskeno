@@ -139,10 +139,6 @@
                                                         src="url('https://logo.blacksaltit.com.au/RedLogo/05_Png_TransparentBG/StackedLogo/BlackSaltIT_Red_Stacked_TransparentBG.png')"
                                                         content-width="33mm"/>
                                             </fo:block>
-<!--                                            <fo:block text-align="left" font-size="10pt" space-after="2mm">-->
-<!--                                                <fo:block>30 Richings Dr.</fo:block>-->
-<!--                                                <fo:block>YOUNGTOWN, TAS 7249</fo:block>-->
-<!--                                            </fo:block>-->
                                             <fo:block text-align="left" font-size="10pt" font-weight="bold" space-after="5mm">
                                                 ABN: 63 660 450 564
                                             </fo:block>
@@ -414,33 +410,6 @@
                             </fo:table-row>
                         </fo:table-body>
                     </fo:table>
-
-
-                    <!--                    &lt;!&ndash; Payment Advice &ndash;&gt;-->
-                    <!--                    <fo:block font-size="10pt" font-weight="bold" space-before="20mm">-->
-                    <!--                        PAYMENT ADVICE-->
-                    <!--                    </fo:block>-->
-                    <!--                    <fo:block font-size="10pt">-->
-                    <!--                        <fo:inline font-weight="bold">Customer:</fo:inline>-->
-                    <!--                        <xsl:value-of select="Invoice/data/site/name"/>-->
-                    <!--                    </fo:block>-->
-                    <!--                    <fo:block font-size="10pt">-->
-                    <!--                        <fo:inline font-weight="bold">Invoice Number:</fo:inline>-->
-                    <!--                        INV-XXXX-->
-                    <!--                    </fo:block>-->
-                    <!--                    <fo:block font-size="10pt">-->
-                    <!--                        <fo:inline font-weight="bold">Amount Due:</fo:inline>-->
-                    <!--                        <xsl:value-of select="sum(Invoice/data/assets/billingAmount) * 1.1"/>-->
-                    <!--                    </fo:block>-->
-                    <!--                    <fo:block font-size="10pt">-->
-                    <!--                        <fo:inline font-weight="bold">Due Date:</fo:inline>-->
-                    <!--                        30 Aug 2024-->
-                    <!--                    </fo:block>-->
-                    <!--                    <fo:block font-size="10pt">-->
-                    <!--                        <fo:inline font-weight="bold">Amount Enclosed:</fo:inline>-->
-                    <!--                        ____________-->
-                    <!--                    </fo:block>-->
-
 
                     <fo:block break-before="page">
                         <xsl:variable name="matching-rows" select="//data/assets[wasActive='true' and count (events) = 1]"/>
