@@ -163,6 +163,29 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub arn:aws:s3:::${S3ConfigBucket}/*
+        - PolicyName: SESSend
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                Resource: '*'
+        - PolicyName: LambdaSecretsManagerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:PutSecretValue"
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:xero-api-tokens*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
 
   RoleClientLambdaAuthorizer:
     Type: AWS::IAM::Role
@@ -245,11 +268,17 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+          CA_BASE64_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVPVENDQXlHZ0F3SUJBZ0lVSzQwazhOWGVRaFllNVRXa2tHdGdPdWxvR1ZJd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2dhc3hDekFKQmdOVkJBWVRBa0ZWTVJFd0R3WURWUVFJREFoVVlYTnRZVzVwWVRFVE1CRUdBMVVFQnd3SwpUR0YxYm1ObGMzUnZiakVXTUJRR0ExVUVDZ3dOUW14aFkyc2dVMkZzZENCSlZERVJNQThHQTFVRUN3d0lUbVYwCmQyOXlhM014SHpBZEJnTlZCQU1NRmtKc1lXTnJJRk5oYkhRZ1NWUWdUbVYwZDI5eWEzTXhLREFtQmdrcWhraUcKOXcwQkNRRVdHVzFoZEdobGQwQmliR0ZqYTNOaGJIUnBkQzVqYjIwdVlYVXdIaGNOTWpJeE1qSXhNak0wTURBNQpXaGNOTWpjeE1qSXdNak0wTURBNVdqQ0JxekVMTUFrR0ExVUVCaE1DUVZVeEVUQVBCZ05WQkFnTUNGUmhjMjFoCmJtbGhNUk13RVFZRFZRUUhEQXBNWVhWdVkyVnpkRzl1TVJZd0ZBWURWUVFLREExQ2JHRmpheUJUWVd4MElFbFUKTVJFd0R3WURWUVFMREFoT1pYUjNiM0pyY3pFZk1CMEdBMVVFQXd3V1FteGhZMnNnVTJGc2RDQkpWQ0JPWlhSMwpiM0pyY3pFb01DWUdDU3FHU0liM0RRRUpBUllaYldGMGFHVjNRR0pzWVdOcmMyRnNkR2wwTG1OdmJTNWhkVENDCkFTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTmNWa2JmR3U5cDB2aXhiU0ptU3JIRGcKZUNlTzA0aFNqM29hODloWVp5SE5pVHFlSXd1MWw3QXNhV0ZySExndnlSMktZbkhjelZ2ZVgyMjNzNTlFelJQTApHUUVNMjBnTHpDZVZkV1lOZ245eURHVG1DT1lOdSswcjlBRjRIR3MyRkNpU2p2UUZhZFZzVWpRSVJ3bUN1a0ltCklrbUd4ZmY3OGpPbm9zVTJIZHdNYmRpa3RGN3JZL1hPa1JzSHZFdHRabHBOQU83emZxUUhUbEdmUUh6NXR0N2UKL2liTXQvNHUxWDNPbG9VOXNSajhSMG84SlN4WUFxdC9pUzRheTlyL3Z5cExQNEJDdWVubzRxUzJYTVB3elFZSgpIcGNuaittY1ZZUi9ZQVJORSs3NkZBUGZvM2dxMU1LSmppMEtaTk92SmlvUDltSktrZ21pNW4wVU1qSjBkbzBDCkF3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQjhHQTFVZEl3UVkKTUJhQUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUpyZ3lFMHNKNlJmUUNzZUJNazFQeUdQZi9ubyt1bDFXT1hXMUNOczJvZzBXLzJnCm1JNWZka1ZkNkFHVXBxUjhIVUNNNGhZU3RzTW5uTjc5TEpGUnVxc0c1TVg1eWtpZWtiZDZUcDZFdGFMUGFCZ0IKTDAzNEdJYzI4NHcxcEEzKzFJWXBCN2R4UnFtNXY4WkJyN0xzVWFIdElOREl0cjIyYVNRSDRTRG8zT0t4Z0U2RApUNFRWejd3YVM4ZnBSVVAyMWJCaXR3T2pBZGlyTlAvSFVrUzVGRnJqMDE4cm5GOExrU2tKWjhMWUx4RVdSUDJ6Ci9ab3lGeE5HWXpkK0FDY1E3cWNXc2thUkc4T2g3TWlzTDhnc3hFSjBOb2V0TThYaCsxVUFaV0p3U2hhSXliN2YKKzF3ZWhqZkVPenBEOGoxdUZqZUpPcUhmTVFlaGpzbDgvbXIrNmc4PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==%
           S3_CONFIG_BUCKET: !Ref S3ConfigBucket
           COMMISSION_LIBRE_SQS: !Ref QueueCommissionLibre
           COMMISSION_SNMPMON_SQS: !Ref QueueCommissionSNMPMon
           COMMISSION_CRED_SQS: !Ref QueueCommissionCred
           INVOICE_SQS: !Ref QueueInvoiceProcessor
+          REDIS_CLUSTER_PORT: 6379
+          REDIS_CLUSTER_HOST:
+            Fn::GetAtt:
+              - ReplicationGroupRedisMonitor
+              - ConfigurationEndPoint.Address
       Role: !GetAtt RoleTasKenoAPI.Arn
       VpcConfig:
         SubnetIds:
@@ -269,6 +298,8 @@ Resources:
           - "aws-sdk"
           - "@aws-sdk/client-route-53"
           - "@aws-sdk/client-sqs"
+          - "@aws-sdk/client-secrets-manager"
+          - "@aws-sdk/client-ses"
         EntryPoints:
           - tenant.ts
 
@@ -568,6 +599,7 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+
   FunctionRouterControllerProxy:
     Type: 'AWS::Serverless::Function'
     Properties:
@@ -629,7 +661,7 @@ Resources:
       FifoQueue: true
       ContentBasedDeduplication: true
       VisibilityTimeout: 90
-      DelaySeconds: 60
+      DelaySeconds: 30
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt QueueCommissionLibreDLQ.Arn
         maxReceiveCount: 5
@@ -658,6 +690,20 @@ Resources:
                 Resource:
                   - !GetAtt QueueCommissionLibre.Arn
                   - !GetAtt QueueCommissionLibreDLQ.Arn
+        - PolicyName: DynamoDBAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableTasKenoNMS}
+
   FunctionSQSCommissionLibre:
     Type: AWS::Serverless::Function
     Properties:
@@ -718,7 +764,7 @@ Resources:
       FifoQueue: true
       ContentBasedDeduplication: true
       VisibilityTimeout: 90
-      DelaySeconds: 60
+      DelaySeconds: 30
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt QueueCommissionSNMPMonDLQ.Arn
         maxReceiveCount: 5
@@ -768,6 +814,11 @@ Resources:
         Variables:
           QUEUE_URL: !Ref QueueCommissionSNMPMon
           S3_CONFIG_BUCKET: !Ref S3ConfigBucket
+          REDIS_CLUSTER_PORT: 6379
+          REDIS_CLUSTER_HOST:
+            Fn::GetAtt:
+              - ReplicationGroupRedisMonitor
+              - ConfigurationEndPoint.Address
       Timeout: 90
       MemorySize: 256
       CodeUri: commission-sqs/
@@ -815,7 +866,7 @@ Resources:
       FifoQueue: true
       ContentBasedDeduplication: true
       VisibilityTimeout: 90
-      DelaySeconds: 60
+      DelaySeconds: 30
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt QueueCommissionCredDLQ.Arn
         maxReceiveCount: 5
@@ -924,8 +975,6 @@ Resources:
         deadLetterTargetArn: !GetAtt QueueInvoiceProcessorDLQ.Arn
         maxReceiveCount: 5
 
-
-
   FunctionInvoiceProcessor:
     Type: AWS::Serverless::Function
     Properties:
@@ -942,6 +991,11 @@ Resources:
         Variables:
           INVOICE_BUCKET: !Ref S3InvoiceBucket
       Role: !GetAtt RoleSQSInvoiceProcessorRole.Arn
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
 
   #    Events:
   #      SQSEvent:
@@ -964,6 +1018,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       Policies:
         - PolicyName: SQSAccessPolicy
           PolicyDocument:
@@ -988,6 +1043,21 @@ Resources:
                   - s3:*
                 Resource:
                   - !Sub arn:aws:s3:::${S3InvoiceBucket}/*
+        - PolicyName: LambdaSecretsManagerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:PutSecretValue"
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:xero-api-tokens*"
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
       RoleName: SQSInvoiceProcessorRole
 
   SQSTriggerInvoiceProcessor:
@@ -996,6 +1066,202 @@ Resources:
       BatchSize: 1
       EventSourceArn: !GetAtt QueueInvoiceProcessor.Arn
       FunctionName: !GetAtt FunctionInvoiceProcessor.Arn
+
+
+  ReplicationGroupRedisMonitor:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      AutomaticFailoverEnabled: true
+      ReplicationGroupId: device-monitor-cluster
+      ReplicationGroupDescription: Redis Cluster for Router Status
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheNodeType: cache.t4g.micro
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 0
+      ClusterMode: enabled
+      CacheSubnetGroupName: !Ref SubnetGroupRedisMonitor
+      CacheParameterGroupName: default.redis7.cluster.on
+      SecurityGroupIds:
+        - !Ref SecurityGroupRedisMonitor
+  SubnetGroupRedisMonitor:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for Redis Cache
+      SubnetIds:
+        - !Ref SubnetTasKenoAPI
+  SecurityGroupRedisMonitor:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ElastiCache Redis Security Group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 172.27.251.0/24
+
+  DynamoDBAccessPolicyRO:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: DynamoDBAccessPolicyRO
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:DescribeTable
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:GetItem
+            Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableTasKenoNMS}
+
+
+  RoleDeviceMonitor:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref DynamoDBAccessPolicyRO
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+        - PolicyName: WSDynamoDBConnections
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/MonitorWSConnections
+        - PolicyName: ExecuteAPIPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - execute-api:Invoke
+                  - execute-api:ManageConnections
+                Resource:
+                  - arn:aws:execute-api:*:*:*
+        - PolicyName: SQSWSSendLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  - !GetAtt MonitorStack.Outputs.WSSendSQSArn
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${S3ConfigBucket}/*
+
+
+    # Lambda Function
+  FunctionDeviceMonitor:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: DeviceMonitor
+      Handler: monitor.handler
+      Runtime: nodejs20.x
+      CodeUri: devicemonitor/
+      MemorySize: 1024  # Adjust as necessary
+      Timeout: 30
+      Role: !GetAtt RoleDeviceMonitor.Arn
+      VpcConfig:
+        SubnetIds:
+          - !Ref SubnetTasKenoAPI
+        SecurityGroupIds:
+          - !Ref SecurityGroupLambdaVPC
+      Environment:
+        Variables:
+          S3_CONFIG_BUCKET: !Ref S3ConfigBucket
+          CA_BASE64_CERT: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVPVENDQXlHZ0F3SUJBZ0lVSzQwazhOWGVRaFllNVRXa2tHdGdPdWxvR1ZJd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2dhc3hDekFKQmdOVkJBWVRBa0ZWTVJFd0R3WURWUVFJREFoVVlYTnRZVzVwWVRFVE1CRUdBMVVFQnd3SwpUR0YxYm1ObGMzUnZiakVXTUJRR0ExVUVDZ3dOUW14aFkyc2dVMkZzZENCSlZERVJNQThHQTFVRUN3d0lUbVYwCmQyOXlhM014SHpBZEJnTlZCQU1NRmtKc1lXTnJJRk5oYkhRZ1NWUWdUbVYwZDI5eWEzTXhLREFtQmdrcWhraUcKOXcwQkNRRVdHVzFoZEdobGQwQmliR0ZqYTNOaGJIUnBkQzVqYjIwdVlYVXdIaGNOTWpJeE1qSXhNak0wTURBNQpXaGNOTWpjeE1qSXdNak0wTURBNVdqQ0JxekVMTUFrR0ExVUVCaE1DUVZVeEVUQVBCZ05WQkFnTUNGUmhjMjFoCmJtbGhNUk13RVFZRFZRUUhEQXBNWVhWdVkyVnpkRzl1TVJZd0ZBWURWUVFLREExQ2JHRmpheUJUWVd4MElFbFUKTVJFd0R3WURWUVFMREFoT1pYUjNiM0pyY3pFZk1CMEdBMVVFQXd3V1FteGhZMnNnVTJGc2RDQkpWQ0JPWlhSMwpiM0pyY3pFb01DWUdDU3FHU0liM0RRRUpBUllaYldGMGFHVjNRR0pzWVdOcmMyRnNkR2wwTG1OdmJTNWhkVENDCkFTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTmNWa2JmR3U5cDB2aXhiU0ptU3JIRGcKZUNlTzA0aFNqM29hODloWVp5SE5pVHFlSXd1MWw3QXNhV0ZySExndnlSMktZbkhjelZ2ZVgyMjNzNTlFelJQTApHUUVNMjBnTHpDZVZkV1lOZ245eURHVG1DT1lOdSswcjlBRjRIR3MyRkNpU2p2UUZhZFZzVWpRSVJ3bUN1a0ltCklrbUd4ZmY3OGpPbm9zVTJIZHdNYmRpa3RGN3JZL1hPa1JzSHZFdHRabHBOQU83emZxUUhUbEdmUUh6NXR0N2UKL2liTXQvNHUxWDNPbG9VOXNSajhSMG84SlN4WUFxdC9pUzRheTlyL3Z5cExQNEJDdWVubzRxUzJYTVB3elFZSgpIcGNuaittY1ZZUi9ZQVJORSs3NkZBUGZvM2dxMU1LSmppMEtaTk92SmlvUDltSktrZ21pNW4wVU1qSjBkbzBDCkF3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQjhHQTFVZEl3UVkKTUJhQUZCdWROSmtWRFJXSklpSGduWnFaNjZsL1IxajVNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUpyZ3lFMHNKNlJmUUNzZUJNazFQeUdQZi9ubyt1bDFXT1hXMUNOczJvZzBXLzJnCm1JNWZka1ZkNkFHVXBxUjhIVUNNNGhZU3RzTW5uTjc5TEpGUnVxc0c1TVg1eWtpZWtiZDZUcDZFdGFMUGFCZ0IKTDAzNEdJYzI4NHcxcEEzKzFJWXBCN2R4UnFtNXY4WkJyN0xzVWFIdElOREl0cjIyYVNRSDRTRG8zT0t4Z0U2RApUNFRWejd3YVM4ZnBSVVAyMWJCaXR3T2pBZGlyTlAvSFVrUzVGRnJqMDE4cm5GOExrU2tKWjhMWUx4RVdSUDJ6Ci9ab3lGeE5HWXpkK0FDY1E3cWNXc2thUkc4T2g3TWlzTDhnc3hFSjBOb2V0TThYaCsxVUFaV0p3U2hhSXliN2YKKzF3ZWhqZkVPenBEOGoxdUZqZUpPcUhmTVFlaGpzbDgvbXIrNmc4PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==%
+          DYNAMODB_TABLE: !Ref DynamoDBTableTasKenoNMS
+          REDIS_CLUSTER_PORT: 6379
+          REDIS_CLUSTER_HOST:
+            Fn::GetAtt:
+              - ReplicationGroupRedisMonitor
+              - ConfigurationEndPoint.Address
+          WS_SEND_QUEUE: !GetAtt MonitorStack.Outputs.WSSendSQS
+#          CONNECTION_TABLE: MonitorWSConnections
+#          WEBSOCKET_API_ENDPOINT: !GetAtt MonitorStack.Outputs.MonitorAPIEndpoint
+
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
+          - "@aws-sdk/util-dynamodb"
+          - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
+          - "@aws-sdk/client-apigatewaymanagementapi"
+        EntryPoints:
+          - monitor.ts
+
+  # CloudWatch Events Rule (EventBridge Rule)
+  EventRuleDeviceMonitor:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: cron(0/1 * * * ? *)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt FunctionDeviceMonitor.Arn
+          Id: DeviceMonitorFunctionTarget
+
+  # Lambda Permission to Allow EventBridge to Invoke the Lambda
+  PermissionDeviceMonitorLambdaInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FunctionDeviceMonitor
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventRuleDeviceMonitor.Arn
+
+
+  MonitorStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./stacks/monitor-stack.yml
+
+
+
 
 #Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

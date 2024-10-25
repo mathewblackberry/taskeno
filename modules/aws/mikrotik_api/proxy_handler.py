@@ -9,7 +9,6 @@ from boto3.dynamodb.conditions import Key
 from mt_api_functions import update_radius, complete_get
 from crypto import doit
 
-# Setup logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -47,7 +46,6 @@ def get_credential_by_username(router_details, username):
 
 
 def lambda_handler(event, context):
-    print(temp_ca_cert_path)
     try:
         # Log the received event for debugging
         # logger.info("Received event: %s", json.dumps(event))
@@ -71,10 +69,6 @@ def lambda_handler(event, context):
         try:
             # Query the table
             response = table.get_item(Key=key)
-            print(response)
-            print(site_id)
-            print(asset_id)
-
             # Check if items are returned
             if 'Item' in response:
                 item = response['Item']
@@ -97,8 +91,6 @@ def lambda_handler(event, context):
                 return response
 
         except Exception as e:
-            print('Exception 1')
-            print(e)
             response = {'statusCode': 500, 'body': json.dumps({'message': str(e)}), 'headers': {'Access-Control-Allow-Origin': '*'}}
             return response
 
@@ -118,9 +110,7 @@ def lambda_handler(event, context):
         elif command == 'ip_firewall_address' and http_method == 'GET':
             response = complete_get('/ip/firewall/address-list', temp_ca_cert_path, loopback, password)
         elif command == 'csr' and http_method == 'PUT':
-            print('Generating Certificate')
             response = doit(loopback, hostname)
-
         else:
             response = {
                 'statusCode': 404,

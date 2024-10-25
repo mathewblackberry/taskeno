@@ -1,0 +1,86 @@
+{
+  "community": "bsitaskenosnmp-ro",
+  "interfaces": [
+    {
+      "name": "lo",
+      "port": "1"
+    },
+    {
+      "name": "wan",
+      "port": "2"
+    },
+    {
+      "name": "keno",
+      "port": "3"
+    }
+  ],
+  "hosts": [
+    {
+      "host": "tkowphr01m2004",
+      "interfaces": [
+        {
+          "name": "lo",
+          "port": "19"
+        },
+        {
+          "name": "wan",
+          "port": "1"
+        },
+        {
+          "name": "core",
+          "port": "18"
+        },
+        {
+          "name": "south",
+          "port": "20"
+        },
+        {
+          "name": "north",
+          "port": "21"
+        }
+      ]
+    },
+    {
+      "host": "tkowphr02m2004",
+      "interfaces": [
+        {
+          "name": "lo",
+          "port": "19"
+        },
+        {
+          "name": "fwan",
+          "port": "17"
+        },
+        {
+          "name": "core",
+          "port": "18"
+        },
+        {
+          "name": "south",
+          "port": "20"
+        },
+        {
+          "name": "north",
+          "port": "21"
+        }
+      ]
+    },
+    {
+      "host": "tkotkvr01mlt6",
+      "interfaces": [
+        {
+          "name": "lo",
+          "port": "1"
+        },
+        {
+          "name": "nbn",
+          "port": "2"
+        },
+        {
+          "name": "lte",
+          "port": "7"
+        }
+      ]
+    }
+  ]
+}

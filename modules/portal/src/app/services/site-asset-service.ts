@@ -1,7 +1,7 @@
 import {HttpClient, HttpHeaders, HttpResponse} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {Observable} from 'rxjs';
-import {Asset, Comment, InvoiceEvent, Rate, Site} from '../models/model';
+import {Asset, Comment, Glance, InvoiceEvent, Rate, Site} from '../models/model';
 import {ToastService} from './toast-service';
 
 @Injectable({
@@ -17,6 +17,11 @@ export class SiteAssetService {
 
   getSites(): Observable<Site[]> {
     return this.http.get<Site[]>(`${this.portalUrl}/site`);
+  }
+
+  updateSite(site: Site): Observable<Site[]> {
+    const siteUrl = `${this.portalUrl}/site/${site.id}`;
+    return this.http.put<Site[]>(siteUrl, site);
   }
 
   getAssets(siteId: string): Observable<Asset[]> {
@@ -79,6 +84,15 @@ export class SiteAssetService {
     return this.http.post(`${this.portalUrl}/site/${siteId}/commission/${assetId}`, {});
   }
 
+  commissionRouterCreds(siteId: string, assetId: string): Observable<any> {
+    return this.http.post(`${this.portalUrl}/site/${siteId}/commissioncred/${assetId}`, {});
+  }
+
+  updateRouterSNMP(siteId: string, assetId: string): Observable<any> {
+    return this.http.get(`${this.portalUrl}/site/${siteId}/snmpupdate/${assetId}`, {});
+  }
+
+
   getComments(assetId: string): Observable<Comment[]> {
     return this.http.get<Comment[]>(`${this.portalUrl}/asset/${assetId}/comment`);
   }
@@ -97,6 +111,18 @@ export class SiteAssetService {
 
   deleteComment(assetId: string, commentId: string): Observable<any> {
     return this.http.delete(`${this.portalUrl}/asset/${assetId}/comment/${commentId}`);
+  }
+
+  generateNewInvoice(invoiceData: any): Observable<any>{
+    return this.http.post(`${this.portalUrl}/invoice`, invoiceData)
+  }
+
+  getGlance(): Observable<{glance: Glance}> {
+    return this.http.get<{glance: Glance}>(`${this.portalUrl}/monitor`);
+  }
+
+  flushCache(): Observable<any> {
+    return this.http.get(`${this.portalUrl}/flushcache`);
   }
 
 }

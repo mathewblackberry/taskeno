@@ -89,6 +89,7 @@ export const activateAsset = async (pathParameters: string[], activate: boolean,
         };
 
         // Second update: TENANT#<tenantId> and SITE#<siteid>
+
         const updateTenantSiteParams: UpdateCommandInput = {
             TableName: TABLE_NAME,
             Key: {
@@ -120,11 +121,27 @@ export const activateAsset = async (pathParameters: string[], activate: boolean,
         };
 
         // Execute both updates and event creation
-        const [updateSiteAssetResult, updateTenantSiteResult, addEventResult] = await Promise.all([
-            ddbClient.send(new UpdateCommand(updateSiteAssetParams)),
-            ddbClient.send(new UpdateCommand(updateTenantSiteParams)),
-            ddbClient.send(new PutCommand(addEventParams))
-        ]);
+        // const [updateSiteAssetResult, updateTenantSiteResult, addEventResult] = await Promise.all([
+        //     ddbClient.send(new UpdateCommand(updateSiteAssetParams)),
+        //     ddbClient.send(new UpdateCommand(updateTenantSiteParams)),
+        //     ddbClient.send(new PutCommand(addEventParams))
+        // ]);
+
+
+        const promises = [
+            ddbClient.send(new UpdateCommand(updateSiteAssetParams))
+        ];
+
+        if (activate) {
+            promises.push(ddbClient.send(new UpdateCommand(updateTenantSiteParams)));
+        }
+
+        promises.push(ddbClient.send(new PutCommand(addEventParams)));
+
+// Execute all promises
+        const [updateSiteAssetResult, updateTenantSiteResult, addEventResult] = await Promise.all(promises);
+
+
 
         return {
             statusCode: 200,

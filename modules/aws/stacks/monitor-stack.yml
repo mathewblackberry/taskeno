@@ -1,0 +1,789 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Components needed for Monitor Websocket App
+
+
+Resources:
+  TableMonitorWSConnections:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: MonitorWSConnections
+      TimeToLiveSpecification:
+        AttributeName: expiry
+        Enabled: true
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: connectionId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: connectionId
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  RoleConnectHandlerService:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PolicyConnectionHandler:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+            Effect: Allow
+            Resource:
+              - !GetAtt TableMonitorWSConnections.Arn
+      PolicyName: PolicyConnectionHandler
+      Roles:
+        - !Ref RoleConnectHandlerService
+
+  FunctionConnectHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WSConnectHandler
+      MemorySize: 256
+      CodeUri: ../monitor-websocket/
+      Handler: connection.handler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Role: !GetAtt RoleConnectHandlerService.Arn
+      Environment:
+        Variables:
+          CONNECTION_TABLE: !Ref TableMonitorWSConnections
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-s3"
+          - "@aws-sdk/client-sqs"
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "aws-sdk"
+        EntryPoints:
+          - connection.ts
+
+  RoleDisconnectHandlerService:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PolicyDisconnectHandler:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+            Effect: Allow
+            Resource:
+              - !GetAtt TableMonitorWSConnections.Arn
+      PolicyName: PolicyDisconnectHandler
+      Roles:
+        - Ref: RoleDisconnectHandlerService
+
+  FunctionDisconnectHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: WSDisconnectHandler
+      Code:
+        ZipFile: |-
+          const AWS = require('aws-sdk');
+                const ddb = new AWS.DynamoDB.DocumentClient();
+                exports.handler = async function (event, context) {
+                  console.log(JSON.stringify(event,null,2));
+                  console.log(JSON.stringify(context,null,2));
+                  await ddb
+                    .delete({
+                      TableName: process.env.table,
+                      Key: {
+                        connectionId: event.requestContext.connectionId,
+                      },
+                    })
+                    .promise();
+                  return {
+                    statusCode: 200,
+                  };
+                };
+      Role: !GetAtt RoleDisconnectHandlerService.Arn
+      Environment:
+        Variables:
+          table: !Ref TableMonitorWSConnections
+      Handler: index.handler
+      Runtime: nodejs20.x
+
+  RoleSendMessageHandlerService:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PolicySendMessageHandlerServiceRoleDefault:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:GetItem
+              - dynamodb:Scan
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DescribeTable
+            Effect: Allow
+            Resource: !GetAtt TableMonitorWSConnections.Arn
+      PolicyName: PolicySendMessageHandlerServiceRoleDefault
+      Roles:
+        - Ref: RoleSendMessageHandlerService
+
+  FunctionSendMessageHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: WSSendMessageHandler
+      Code:
+        ZipFile: |-
+          const AWS = require('aws-sdk');
+                const ddb = new AWS.DynamoDB.DocumentClient();
+          
+                exports.handler = async function (event, context) {
+                  let connections;
+                  try {
+                    connections = await ddb.scan({ TableName: process.env.table }).promise();
+                  } catch (err) {
+                    return {
+                      statusCode: 500,
+                    };
+                  }
+                  const callbackAPI = new AWS.ApiGatewayManagementApi({
+                    apiVersion: '2018-11-29',
+                    endpoint:
+                      event.requestContext.domainName + '/' + event.requestContext.stage,
+                  });
+          
+                  const message = JSON.parse(event.body).message;
+          
+                  const sendMessages = connections.Items.map(async ({ connectionId }) => {
+                    if (connectionId !== event.requestContext.connectionId) {
+                      try {
+                        await callbackAPI
+                          .postToConnection({ ConnectionId: connectionId, Data: message })
+                          .promise();
+                      } catch (e) {
+                        console.log(e);
+                      }
+                    }
+                  });
+          
+                  try {
+                    await Promise.all(sendMessages);
+                  } catch (e) {
+                    console.log(e);
+                    return {
+                      statusCode: 500,
+                    };
+                  }
+          
+                  return { statusCode: 200 };
+                };
+      Role: !GetAtt RoleSendMessageHandlerService.Arn
+      Environment:
+        Variables:
+          table: !Ref TableMonitorWSConnections
+      Handler: index.handler
+      Runtime: nodejs20.x
+
+  RoleDefaultHandlerService:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PolicyDefaultHandlerServiceRoleDefault:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: execute-api:ManageConnections
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:execute-api:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - ":"
+                  - Ref: ApiMonitor
+                  - /production/POST/@connections/*
+          - Action: execute-api:ManageConnections
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:execute-api:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - ":"
+                  - Ref: ApiMonitor
+                  - /production/GET/@connections/*
+      PolicyName: PolicyDefaultHandlerServiceRoleDefault
+      Roles:
+        - Ref: RoleDefaultHandlerService
+
+  FunctionDefaultHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: WSDefaultHandler
+      Code:
+        ZipFile: |-
+          const AWS = require('aws-sdk');
+          
+                exports.handler = async function (event, context) {
+                  let connectionInfo;
+                  let connectionId = event.requestContext.connectionId;
+          
+                  const callbackAPI = new AWS.ApiGatewayManagementApi({
+                    apiVersion: '2018-11-29',
+                    endpoint:
+                      event.requestContext.domainName + '/' + event.requestContext.stage,
+                  });
+          
+                  try {
+                    connectionInfo = await callbackAPI
+                      .getConnection({ ConnectionId: event.requestContext.connectionId })
+                      .promise();
+                  } catch (e) {
+                    console.log(e);
+                  }
+          
+                  connectionInfo.connectionID = connectionId;
+          
+                  await callbackAPI
+                    .postToConnection({
+                      ConnectionId: event.requestContext.connectionId,
+                      Data:
+                        'Use the sendmessage route to send a message. Your info:' +
+                        JSON.stringify(connectionInfo),
+                    })
+                    .promise();
+          
+                  return {
+                    statusCode: 200,
+                  };
+                };
+      Role: !GetAtt RoleDefaultHandlerService.Arn
+      Handler: index.handler
+      Runtime: nodejs20.x
+
+  ApiMonitor:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: monitor-app
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+
+
+  PermissionMonitorApiconnectRouteConnectIntegration:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionConnectHandler.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiMonitor
+            - /*/*$connect
+
+  IntegrationApiMonitorConnectRouteConnect:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":apigateway:"
+            - Ref: AWS::Region
+            - :lambda:path/2015-03-31/functions/
+            - Fn::GetAtt:
+                - FunctionConnectHandler
+                - Arn
+            - /invocations
+
+  RouteApiMonitorConnect:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref AuthorizerMonitorWebSocket
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: IntegrationApiMonitorConnectRouteConnect
+
+  PermissionApiMonitorDisconnectRouteDisconnectIntegration:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionDisconnectHandler.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiMonitor
+            - /*/*$disconnect
+
+  IntegrationApiMonitorDisconnectRouteDisconnect:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":apigateway:"
+            - Ref: AWS::Region
+            - :lambda:path/2015-03-31/functions/
+            - Fn::GetAtt:
+                - FunctionDisconnectHandler
+                - Arn
+            - /invocations
+
+  RouteApiMonitorDisconnect:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: IntegrationApiMonitorDisconnectRouteDisconnect
+
+  PermissionApiMonitorDefaultRouteDefaultIntegration:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionDefaultHandler.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiMonitor
+            - /*/*$default
+
+  IntegrationApiMonitorDefaultRouteDefault:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":apigateway:"
+            - Ref: AWS::Region
+            - :lambda:path/2015-03-31/functions/
+            - Fn::GetAtt:
+                - FunctionDefaultHandler
+                - Arn
+            - /invocations
+
+  RouteApiMonitorDefault:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      RouteKey: $default
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: IntegrationApiMonitorDefaultRouteDefault
+
+  PermissionApiMonitorSendMessageRouteMessageHandler:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FunctionSendMessageHandler.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiMonitor
+            - /*/*sendmessage
+
+  IntegrationApiMonitorSendMessageRouteMessageHandler:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":apigateway:"
+            - Ref: AWS::Region
+            - :lambda:path/2015-03-31/functions/
+            - Fn::GetAtt:
+                - FunctionSendMessageHandler
+                - Arn
+            - /invocations
+
+  RouteApiMonitorSendMessage:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      RouteKey: sendmessage
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: IntegrationApiMonitorSendMessageRouteMessageHandler
+
+  StageProduction:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId:
+        Ref: ApiMonitor
+      StageName: production
+      AutoDeploy: true
+
+  PolicyManageConnections:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: execute-api:ManageConnections
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:execute-api:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - ":"
+                  - Ref: ApiMonitor
+                  - /production/POST/@connections/*
+        Version: "2012-10-17"
+      PolicyName: PolicyManageConnections
+      Roles:
+        - Ref: RoleSendMessageHandlerService
+
+  AuthorizerMonitorWebSocket:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref ApiMonitor
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FunctionWebSocketAuthorizer.Arn}/invocations
+      IdentitySource:
+        - route.request.querystring.Authorization
+      Name: WebSocketAuthorizer
+
+  RoleWebSocketAuthorizer:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  FunctionWebSocketAuthorizer:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WSAuthorizer
+      MemorySize: 256
+      Handler: client_authorizer.lambdaHandler
+      Runtime: nodejs20.x
+      CodeUri: ../monitor-websocket/
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          JWKS_URL: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_JKchaTUnw/.well-known/jwks.json
+      Role: !GetAtt RoleWebSocketAuthorizer.Arn
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-s3"
+          - "@aws-sdk/client-sqs"
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "aws-sdk"
+        EntryPoints:
+          - client_authorizer.ts
+  MonitorLambdaAuthorizerApiGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FunctionWebSocketAuthorizer
+      Principal: apigateway.amazonaws.com
+
+  QueueWSSendDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ws-send-dlq.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+
+
+  QueueWSSend:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ws-send-processor.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt QueueWSSendDLQ.Arn
+        maxReceiveCount: 5
+  FunctionWSSend:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: WSSendSQS
+      Handler: send.lambdaHandler
+      Role: !GetAtt RoleWSSend.Arn
+      Runtime: nodejs20.x
+      Environment:
+        Variables:
+          CONNECTION_TABLE: !Ref TableMonitorWSConnections
+          WEBSOCKET_API_ENDPOINT: !Sub "https://${ApiMonitor.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production"
+      Timeout: 20
+      MemorySize: 256
+      CodeUri: ../wssend-sqs/
+      Architectures:
+        - x86_64
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2022"
+        Sourcemap: false
+        External:
+          - "@aws-sdk/client-dynamodb"
+          - "@aws-sdk/lib-dynamodb"
+          - "@aws-sdk/client-s3"
+          - "aws-sdk"
+          - "@aws-sdk/client-route-53"
+          - "@aws-sdk/client-sqs"
+          - "@aws-sdk/client-apigatewaymanagementapi"
+        EntryPoints:
+          - send.ts
+  RoleWSSend:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+        - PolicyName: WSDynamoDBConnections
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableMonitorWSConnections}
+        - PolicyName: ExecuteAPIPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - execute-api:Invoke
+                  - execute-api:ManageConnections
+                Resource:
+                  - arn:aws:execute-api:*:*:*
+        - PolicyName: SQSWSSendLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt QueueWSSend.Arn
+  SQSTriggerInvoiceProcessor:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !GetAtt QueueWSSend.Arn
+      FunctionName: !GetAtt FunctionWSSend.Arn
+
+
+#  FunctionConnectHandler:
+#    Type: AWS::Serverless::Function
+#    Properties:
+#      MemorySize: 256
+#      CodeUri: ../monitor-websocket/
+#      Handler: connection.handler
+#      Runtime: nodejs20.x
+#      FunctionName: monitor_ws_connection
+#      Architectures:
+#        - x86_64
+#      Role: !GetAtt RoleConnectHandlerService.Arn
+#      Environment:
+#        Variables:
+#          CONNECTION_TABLE: !Ref TableMonitorWSConnections
+#    Metadata:
+#      BuildMethod: esbuild
+#      BuildProperties:
+#        Minify: true
+#        Target: "es2022"
+#        Sourcemap: false
+#        External:
+#          - "@aws-sdk/client-s3"
+#          - "@aws-sdk/client-sqs"
+#          - "@aws-sdk/client-dynamodb"
+#          - "@aws-sdk/lib-dynamodb"
+#          - "aws-sdk"
+#        EntryPoints:
+#          - connection.ts
+
+Outputs:
+  MonitorAPIEndpoint:
+    Description: Websocket API Endpoint
+    Value: !Sub "https://${ApiMonitor.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production"
+  WSSendSQS:
+    Description: SQS Queue for WS Send
+    Value: !Ref QueueWSSend
+  WSSendSQSArn:
+    Description: SQS Queue for WS Send
+    Value: !GetAtt QueueWSSend.Arn

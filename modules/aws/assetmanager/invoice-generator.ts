@@ -3,6 +3,7 @@ import {SendMessageCommand, SQSClient} from '@aws-sdk/client-sqs';
 import {DynamoDBDocumentClient, GetCommand, QueryCommand} from '@aws-sdk/lib-dynamodb';
 import {APIGatewayProxyResult} from 'aws-lambda';
 import * as js2xmlparser from "js2xmlparser";
+import {createXeroInvoice} from './invoice_xero';
 import {Asset, Site, Tenant} from './model';
 
 const ddbClient = new DynamoDBClient({region: process.env.AWS_REGION});
@@ -69,6 +70,7 @@ interface Invoice {
 interface InvoiceData {
 
     site: Site;
+    siteTotal: string;
     assets: {
         asset: Asset;
         events: EventDetails[];
@@ -83,8 +85,9 @@ const formatter = new Intl.DateTimeFormat('en-AU', {
     year: 'numeric'
 });
 
-export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: string, endOfMonth: string, TABLE_NAME: string, invoiceDate: string, invoiceNumber: string, overdueIncGST: number): Promise<APIGatewayProxyResult> => {
-
+export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: string, endOfMonth: string, TABLE_NAME: string, invoiceDate: string, overdueIncGST: number): Promise<APIGatewayProxyResult> => {
+    let billTotal = 0;
+    const details = await createXeroInvoice();
     const tenantParams = {
         TableName: TABLE_NAME,
         Key: {
@@ -117,6 +120,7 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
         // Add the invoice only if there are assets that meet the activation criteria
         if (invoice.assets.length > 0) {
             invoices.push(invoice);
+            billTotal += Number(invoice.siteTotal);
         }
     }
 
@@ -124,7 +128,7 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
     let dueDate = new Date(invoiceDate);
     dueDate.setDate(dueDate.getDate() + 14);
 
-    const totalExGst = 9999.6
+    const totalExGst = (Math.round(billTotal * 100) / 100);
     const gst = (Math.round(totalExGst * 0.1 * 100) / 100);
     const totalIncGst = (Math.round(totalExGst * 1.1 * 100) / 100);
     const overdueIncGst = (Math.round(overdueIncGST * 100) / 100);
@@ -132,7 +136,7 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
 
     const invoice = {
         tenant: tenantResult.Item.data,
-        invoiceId: invoiceNumber,
+        invoiceId: details.invoiceNumber,
         invoiceDate: formatter.format(invoiceDateAsDate),
         dueDate: formatter.format(dueDate),
         data: invoices,
@@ -146,15 +150,16 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
     }
 
     const xml = convertJsonToXml(invoice);
-    await sendXmlToSQS(xml);
+    await sendXmlToSQS(xml, details.invoiceId, details.invoiceNumber);
 
-    return {statusCode: 200, body: JSON.stringify({json: invoice, xml: xml})};
+    return {statusCode: 200, body: JSON.stringify({json: invoice, xml: xml, message: `Invoice ${details.invoiceNumber} created!`})};
 }
 
 const generateInvoiceForSite = async (
     tenantId: string, siteId: string,
     startOfMonth: string, endOfMonth: string,
     TABLE_NAME: string): Promise<InvoiceData> => {
+    let siteTotal: number = 0;
 
     // Step 1: Retrieve Site Details
     const siteDetailsParams = {
@@ -217,10 +222,18 @@ const generateInvoiceForSite = async (
 
         if (wasActivated || wasActiveAtStart) {
             const billingAmount = calculateBilling(allEvents, new Date(startOfMonth), new Date(endOfMonth));
+            siteTotal += billingAmount;
+            // @ts-ignore
+            delete asset.data.lanSubnets;
+            // @ts-ignore
+            delete asset.data.routerDetails.credentials;
+            // @ts-ignore
+            delete asset.data.routerDetails.defaultCredentials;
+
             assetsWithBilling.push({
                 asset: asset.data,
                 events: wasActiveAtStart ? formatEvents(allEvents) : formatEvents(events),
-                billingAmount,
+                billingAmount: (Math.round(billingAmount * 100) / 100).toFixed(2),
                 wasActive: wasActiveAtStart
             });
         }
@@ -229,6 +242,7 @@ const generateInvoiceForSite = async (
     // Combine into Invoice Data
     return {
         site: siteDetails.data,
+        siteTotal: (Math.round(siteTotal * 100) / 100).toFixed(2),
         assets: assetsWithBilling
     };
 }
@@ -251,13 +265,13 @@ const formatEvents = (events: EventDetails[]): EventDetails[] => {
     return events.map(formatEvent);
 }
 
-function calculateBilling(events: EventDetails[], startOfMonth: Date, endOfMonth: Date): string {
+function calculateBilling(events: EventDetails[], startOfMonth: Date, endOfMonth: Date): number {
     let totalBilling = 0;
     let lastActivationTime: Date | null = null;
     let lastRate: Rate | null | undefined = null;
     let lastRateBeforePerid: boolean = false;
 
-    for (let i = 0; i < events.length; i++){
+    for (let i = 0; i < events.length; i++) {
         const event = events[i];
         const eventTime = new Date(event.timestamp);
 
@@ -272,15 +286,15 @@ function calculateBilling(events: EventDetails[], startOfMonth: Date, endOfMonth
         } else if (event.eventType === 'DEACTIVATED' && lastActivationTime && lastRate) {
             const activeTime = Math.min(eventTime.getTime(), endOfMonth.getTime()) - Math.max(lastActivationTime.getTime(), startOfMonth.getTime());
             const proRataCharge = (activeTime / (endOfMonth.getTime() - startOfMonth.getTime())) * lastRate.ongoing;
-            if (lastRate && ! lastRateBeforePerid) {
+            if (lastRate && !lastRateBeforePerid) {
                 event.billingAmount = (Math.round((proRataCharge + lastRate.upfront) * 100) / 100).toFixed(2);
-            }else {
-                event.billingAmount = (Math.round(proRataCharge  * 100) / 100).toFixed(2);
+            } else {
+                event.billingAmount = (Math.round(proRataCharge * 100) / 100).toFixed(2);
             }
 
-            if(i> 0 && events[i-1].eventType === 'ACTIVATED'){
-                events[i-1].billingAmount = event.billingAmount;
-                events[i-1].until =  formatter.format(eventTime);
+            if (i > 0 && events[i - 1].eventType === 'ACTIVATED') {
+                events[i - 1].billingAmount = event.billingAmount;
+                events[i - 1].until = formatter.format(eventTime);
             }
 
             totalBilling += proRataCharge;
@@ -296,15 +310,15 @@ function calculateBilling(events: EventDetails[], startOfMonth: Date, endOfMonth
         const activeTime = endOfMonth.getTime() - Math.max(lastActivationTime.getTime(), startOfMonth.getTime());
         const proRataCharge = (activeTime / (endOfMonth.getTime() - startOfMonth.getTime())) * lastRate.ongoing;
         if (!lastRateBeforePerid) {
-            events[events.length-1].billingAmount = (Math.round((proRataCharge + lastRate.upfront) * 100) / 100).toFixed(2);
-        }else {
-            events[events.length-1].billingAmount = (Math.round(proRataCharge  * 100) / 100).toFixed(2);
+            events[events.length - 1].billingAmount = (Math.round((proRataCharge + lastRate.upfront) * 100) / 100).toFixed(2);
+        } else {
+            events[events.length - 1].billingAmount = (Math.round(proRataCharge * 100) / 100).toFixed(2);
         }
-        events[events.length-1].until = formatter.format(endOfMonth);
+        events[events.length - 1].until = formatter.format(endOfMonth);
         totalBilling += proRataCharge;
     }
 
-    return (Math.round(totalBilling * 100) / 100).toFixed(2);
+    return totalBilling;
 
 }
 
@@ -319,15 +333,11 @@ function removeUndefinedFields(obj: any): any {
     );
 }
 
-
-
-
-// Function to send the XML to an SQS Queue
-const sendXmlToSQS = async (xml: string): Promise<void> => {
+const sendXmlToSQS = async (xml: string, xeroInvoiceId: string, invoiceNumber: string): Promise<void> => {
     const params = {
         QueueUrl: queueUrl,
-        MessageBody: xml,
-        MessageGroupId: 'test4'
+        MessageBody: JSON.stringify({xml, xeroInvoiceId}),
+        MessageGroupId: invoiceNumber
     };
 
     try {

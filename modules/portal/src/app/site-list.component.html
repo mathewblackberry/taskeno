@@ -2,19 +2,46 @@
   <div id="alertPlaceholder"></div>
   <div class="search-bar"><img src="assets/images/BlackSaltIT_Red_Stacked_TransparentBG.png" alt="Black Salt IT Logo" class="logo"/>
     <mat-slide-toggle [(ngModel)]="showActiveOnly" (change)="onToggleChange()" style="margin-left: 30px">Active Only</mat-slide-toggle>
-    <!--    <span style="flex: 1"></span>-->
+    <span style="flex: 1;"></span>
+    <div style="display: flex; gap: 20px">
+
+      @if (authService.isAdmin$ | async) {
+    @if (selectedSite) {
+      <button mat-icon-button aria-label="Toggle Site Active" (click)="toggleSiteActive()" [matTooltip]="selectedSite.active ? 'Disable Site' : 'Enable Site'">
+        @if (selectedSite.active) {
+          <mat-icon fontSet="fa" fontIcon="fa-eye-slash" class="fa-duotone" style="font-size: 90%"></mat-icon>
+        } @else {
+          <mat-icon fontSet="fa" fontIcon="fa-eye" class="fa-duotone" style="font-size: 90%"></mat-icon>
+        }
+      </button>
+    }
+
+
+      <button mat-icon-button type="button" (click)="openInvoiceDialog()" matTooltip="Generate Invoice">
+        <mat-icon fontSet="fa" fontIcon="fa-file-invoice-dollar" class="fa-duotone"></mat-icon>
+      </button>
+
+
+
+      <button mat-icon-button type="button" (click)="flushCache()" matTooltip="Flush Monitor Cache">
+        <mat-icon fontSet="fa" fontIcon="fa-binary-slash" class="fa-duotone"></mat-icon>
+      </button>
+    }
+  </div>
     <span class="logout-button-wrapper">
     <button mat-icon-button aria-label="Sign Out" (click)="authenticator.signOut()">
       <mat-icon fontSet="fa" fontIcon="fa-arrow-up-left-from-circle" class="fa-light">logout</mat-icon>
     </button>
     </span>
   </div>
+
+
   <div class="search-bar">
     <div class="search-field">
-      @if(fSites.length > 1){
-      <button mat-icon-button (click)="selectPreviousSite()" [matTooltip]="previousSiteName">
-        <mat-icon>navigate_before</mat-icon>
-      </button>
+      @if (fSites.length > 1) {
+        <button mat-icon-button (click)="selectPreviousSite()" [matTooltip]="previousSiteName">
+          <mat-icon>navigate_before</mat-icon>
+        </button>
       }
 
       <mat-form-field appearance="outline" style="width: 100%" subscriptSizing="dynamic">
@@ -29,10 +56,14 @@
           </mat-option>
         </mat-autocomplete>
       </mat-form-field>
-      @if(fSites.length > 1){
-      <button mat-icon-button (click)="selectNextSite()" [matTooltip]="nextSiteName">
-        <mat-icon>navigate_next</mat-icon>
-      </button>
+      @if (fSites.length > 1) {
+        <button mat-icon-button (click)="selectNextSite()" [matTooltip]="nextSiteName">
+          <mat-icon>navigate_next</mat-icon>
+        </button>
+        <button mat-icon-button (click)="openSiteEditDialog()" matTooltip="Edit Site">
+          <mat-icon>edit</mat-icon>
+        </button>
+
       }
     </div>
 
@@ -55,10 +86,14 @@
           <mat-icon>save</mat-icon>
         </button>
       }
+<!--      {{ selectedAsset?.hostname }}-->
+<!--      <button mat-icon-button (click)="copyHostname(selectedAsset?.hostname!)">-->
+<!--        <mat-icon>content_copy</mat-icon>-->
+<!--      </button>-->
       <span class="spacer"></span>
       <button mat-icon-button (click)="toggleEditMode()" class="edit-button">
         @if (isEditMode) {
-          <mat-icon>check</mat-icon>
+          <mat-icon>undo</mat-icon>
         } @else {
           <mat-icon>edit</mat-icon>
         }
@@ -67,7 +102,23 @@
   }
   @if (selectedAsset) {
     <div class="details-section">
+
       <mat-tab-group class="full-height">
+        @if (selectedAsset && selectedAsset.routerDetails && selectedAsset.routerDetails.mobileDetails) {
+          <mat-tab>
+            <ng-template mat-tab-label>
+              @if (mobileDetailsForm.invalid) {
+                <mat-icon class="tab-icon" color="warn">error</mat-icon>
+              }
+              Mobile Details
+            </ng-template>
+            <form [formGroup]="assetForm">
+              <ng-container formGroupName="routerDetails">
+                <app-mobile-details [isEditMode]=isEditMode [asset]="selectedAsset" [mobileDetailsForm]="mobileDetailsForm"/>
+              </ng-container>
+            </form>
+          </mat-tab>
+        }
         <mat-tab label="General">
           <ng-template mat-tab-label>
             @if (routerGeneralForm.invalid) {
@@ -88,29 +139,17 @@
             }
           </mat-tab>
         }
-        @if (selectedAsset && selectedAsset.routerDetails && selectedAsset.routerDetails.mobileDetails) {
-          <mat-tab>
-            <ng-template mat-tab-label>
-              @if (mobileDetailsForm.invalid) {
-                <mat-icon class="tab-icon" color="warn">error</mat-icon>
-              }
-              Mobile Details
-            </ng-template>
-            <form [formGroup]="assetForm">
-              <ng-container formGroupName="routerDetails">
-                <app-mobile-details [isEditMode]=isEditMode [asset]="selectedAsset" [mobileDetailsForm]="mobileDetailsForm"/>
-              </ng-container>
-            </form>
-          </mat-tab>
-        }
+
         @if (selectedAsset.lanSubnets) {
           <mat-tab label="LAN Subnets">
             <app-lan-subnets [isEditMode]=isEditMode [formGroup]="routerGeneralForm" [selectedAsset]="selectedAsset" (update)="updateAsset()"/>
           </mat-tab>
         }
-        <mat-tab label="Live Tools">
-          <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
-        </mat-tab>
+<!--        @if (pattern.test(selectedAsset.hostname)) {-->
+          <mat-tab label="Live Tools">
+            <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
+          </mat-tab>
+<!--        }-->
 
         <mat-tab label="Log">
           <ng-container *ngIf="authService.userName$ | async as userName">

@@ -40,6 +40,9 @@ import {ArrayEditorComponent} from './ip-list-component';
                 @case ('wanSubnets') {
                   <app-ip-list-editor component="wanSubnets" [formGroup]="routerGeneralForm" type="cidr notation"></app-ip-list-editor>
                 }
+                @case('active'){
+
+                }
                 @default {
                   <mat-form-field appearance="outline" class="full-width" subscriptSizing="dynamic">
                     <input matInput [formControlName]="element.field"/>

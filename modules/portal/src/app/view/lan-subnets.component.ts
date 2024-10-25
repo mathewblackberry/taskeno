@@ -1,5 +1,5 @@
 import {CommonModule} from '@angular/common';
-import {AfterViewInit, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output, QueryList, ViewChildren} from '@angular/core';
+import {AfterViewInit, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, QueryList, SimpleChanges, ViewChildren} from '@angular/core';
 import {FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -112,7 +112,7 @@ import {IPValidators} from '../validators/ip-cidr-validator';
 
   `]
 })
-export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit {
+export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit, OnChanges {
   @Input() displayedColumns: string[] = ['ip', 'name', 'active'];
   @Input({required: true}) selectedAsset: Asset
   @Input({required: true}) formGroup: FormGroup;
@@ -130,9 +130,10 @@ export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnInit(): void {
     this.lanSubnets.controls.forEach((control, index) => {
       const sub = control.get('subnet')?.statusChanges.pipe(
-        debounceTime(500),
+        debounceTime(10),
         distinctUntilChanged()).subscribe(status => {
         if (status === 'VALID') {
+
           this.onSubnetBlur(index);
         }
       });
@@ -163,6 +164,22 @@ export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(private fb: FormBuilder, private cdRef: ChangeDetectorRef) {
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if(changes['selectedAsset']){
+      this.lanSubnets.controls.forEach((control, index) => {
+        const sub = control.get('subnet')?.statusChanges.pipe(
+          debounceTime(10),
+          distinctUntilChanged()).subscribe(status => {
+          if (status === 'VALID') {
+
+            this.onSubnetBlur(index);
+          }
+        });
+        this.subscriptions.push(sub!);
+      });
+    }
+  }
+
   addItem(): void {
     this.lanSubnets.push(this.fb.group({
       subnet: ['', [Validators.required, IPValidators.ipCidrValidator('cidr range')]],
@@ -189,7 +206,7 @@ export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   save(): void {
-    console.log(JSON.stringify(this.formGroup.value, null, 2));
+    // console.log(JSON.stringify(this.formGroup.value, null, 2));
     this.update.emit();
   }
 
@@ -224,6 +241,8 @@ export class LanSubnetsComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   updateHostsArray(hostsFormArray: FormArray, ipList: string[], cidr: IPv4CidrRange) {
+    // console.log('Updating');
+    // console.log(JSON.stringify(ipList, null, 1));
     const existingHostsMap = new Map<string, FormGroup>();
     hostsFormArray.controls.forEach((control, index) => {
       if (index === 0) {

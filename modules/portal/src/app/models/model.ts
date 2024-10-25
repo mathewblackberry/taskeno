@@ -24,6 +24,8 @@ export class Site {
   postcode: string;
   phone: string;
   email: string;
+  latitude: string;
+  longitude: string;
   active: boolean;
 }
 
@@ -118,4 +120,21 @@ export class Rate {
   name: string;
   upfront: number;
   ongoing: number;
+}
+
+
+export class Glance {
+  assets: GlanceAsset[];
+}
+
+export class GlanceAsset {
+  name: string;
+  hostname: string;
+  status: number;
+  interfaces: GlanceInterfaces[];
+}
+
+export class GlanceInterfaces {
+  name: string;
+  running: boolean;
 }

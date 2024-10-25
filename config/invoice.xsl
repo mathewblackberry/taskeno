@@ -44,8 +44,14 @@
                                         <fo:block font-weight="bold">Black Salt IT Pty Ltd</fo:block>
                                         <fo:block>30 Richings Dr</fo:block>
                                         <fo:block>YOUNGTOWN TAS 7249</fo:block>
-                                        <fo:block><fo:inline font-weight="bold">e:</fo:inline> accounts@blacksaltit.com.au</fo:block>
-                                        <fo:block><fo:inline font-weight="bold">p:</fo:inline> (03) 6335 9797</fo:block>
+                                        <fo:block>
+                                            <fo:inline font-weight="bold">e:</fo:inline>
+                                            accounts@blacksaltit.com.au
+                                        </fo:block>
+                                        <fo:block>
+                                            <fo:inline font-weight="bold">p:</fo:inline>
+                                            (03) 6335 9797
+                                        </fo:block>
                                     </fo:table-cell>
                                     <fo:table-cell>
                                         <fo:block font-weight="bold" space-before="5mm">Bank Transfer:</fo:block>
@@ -139,7 +145,7 @@
                                                         src="url('https://logo.blacksaltit.com.au/RedLogo/05_Png_TransparentBG/StackedLogo/BlackSaltIT_Red_Stacked_TransparentBG.png')"
                                                         content-width="33mm"/>
                                             </fo:block>
-                                            <fo:block text-align="left" font-size="10pt" font-weight="bold" space-after="5mm">
+                                            <fo:block text-align="left" font-size="9pt" font-weight="bold" space-after="5mm">
                                                 ABN: 63 660 450 564
                                             </fo:block>
 
@@ -169,9 +175,12 @@
                                     <fo:block space-before="5mm">
                                         <xsl:if test="Invoice/overdueIncGst != '0.00'">
                                             <fo:block>
-                                                <fo:block font-size="14pt" font-weight="bold" text-align="center" background-color="#ed1c24" color="#ffffff" padding="2mm">
+                                                <fo:block font-size="14pt" font-weight="bold" text-align="center" background-color="#ed1c24" color="#ffffff"
+                                                          padding="2mm">
                                                     <fo:block font-size="10pt">Overdue Amount:</fo:block>
-                                                    <fo:block text-align="center" space-before="1mm">$<xsl:value-of select="format-number(Invoice/overdueIncGst, '#,##0.00')"/></fo:block>
+                                                    <fo:block text-align="center" space-before="1mm">$<xsl:value-of
+                                                            select="format-number(Invoice/overdueIncGst, '#,##0.00')"/>
+                                                    </fo:block>
                                                 </fo:block>
                                             </fo:block>
                                         </xsl:if>
@@ -201,27 +210,50 @@
                         </fo:table-body>
                     </fo:table>
 
+
+                    <fo:block font-size="16pt" font-weight="bold" space-before="10mm">
+                        Service Summary
+                    </fo:block>
+
                     <!-- Line Items Table -->
                     <xsl:for-each select="Invoice/data">
-                        <fo:block border-after-color="#000000" border-after-style="solid" border-after-width="1px" background-color="#f0f0f0"
-                                  border-before-color="#000000" border-before-style="solid" border-before-width="1px" padding="2mm">
-                            <fo:block font-weight="bold">
-                                <fo:inline>
-                                    <xsl:value-of select="site/name"/>
-                                </fo:inline>
-                            </fo:block>
-                            <fo:block font-size="9pt">
-                                <xsl:value-of select="site/address"/>,
-                                <xsl:if test="site/address2 and normalize-space(site/address2) != '' and site/address2 != 'null'">
-                                    <xsl:value-of select="site/address2"/>,
-                                </xsl:if>
-                                <xsl:value-of select="site/city"/>
-                                <xsl:text> </xsl:text>
-                                <xsl:value-of select="site/state"/>
-                                <xsl:text> </xsl:text>
-                                <xsl:value-of select="site/postcode"/>
-                            </fo:block>
-                        </fo:block>
+                        <fo:table table-layout="fixed" width="100%" space-after="2mm" space-before="10mm" font-size="9pt">
+                            <fo:table-column column-width="140mm"/>
+                            <fo:table-column column-width="30mm"/>
+                            <fo:table-body>
+                                <fo:table-row border-after-color="#000000" border-after-style="solid" border-after-width="1px" background-color="#f0f0f0"
+                                              border-before-color="#000000" border-before-style="solid" border-before-width="1px">
+                                    <fo:table-cell padding="2mm">
+                                        <fo:block>
+                                            <fo:block font-weight="bold">
+                                                <fo:inline>
+                                                    <xsl:value-of select="site/name"/>
+                                                </fo:inline>
+                                            </fo:block>
+                                            <fo:block font-size="9pt">
+                                                <xsl:value-of select="site/address"/>,
+                                                <xsl:if test="site/address2 and normalize-space(site/address2) != '' and site/address2 != 'null'">
+                                                    <xsl:value-of select="site/address2"/>,
+                                                </xsl:if>
+                                                <xsl:value-of select="site/city"/>
+                                                <xsl:text> </xsl:text>
+                                                <xsl:value-of select="site/state"/>
+                                                <xsl:text> </xsl:text>
+                                                <xsl:value-of select="site/postcode"/>
+                                            </fo:block>
+                                        </fo:block>
+                                    </fo:table-cell>
+                                    <fo:table-cell padding="2mm">
+                                        <fo:block text-align="right" font-weight="bold" font-size="10pt">
+                                            <fo:inline>
+                                                $
+                                                <xsl:value-of select="siteTotal"/>
+                                            </fo:inline>
+                                        </fo:block>
+                                    </fo:table-cell>
+                                </fo:table-row>
+                            </fo:table-body>
+                        </fo:table>
 
                         <xsl:for-each select="assets">
                             <fo:block font-style="italic" font-size="10pt" space-before="1mm" space-after="1mm">
@@ -233,7 +265,7 @@
                                 -
                                 <xsl:value-of select="asset/routerDetails/model"/>
                             </fo:block>
-                            <fo:table table-layout="fixed" width="100%" space-after="8mm" font-size="9pt">
+                            <fo:table table-layout="fixed" width="100%" space-after="2mm" font-size="9pt">
                                 <fo:table-column column-width="20mm"/>
                                 <fo:table-column column-width="3mm"/>
                                 <fo:table-column column-width="30mm"/>
@@ -299,7 +331,7 @@
                                             <fo:block text-align="right" font-weight="bold" margin-right="5pt">
                                                 <fo:inline-container width="100%">
                                                     <fo:block-container text-align="right">
-                                                        <fo:block>Subtotal:</fo:block>
+                                                        <fo:block>Asset Total:</fo:block>
                                                     </fo:block-container>
                                                 </fo:inline-container>
                                             </fo:block>
@@ -322,6 +354,8 @@
                                 </fo:table-body>
                             </fo:table>
                         </xsl:for-each>
+
+
                     </xsl:for-each>
                     <!-- Invoice Totals -->
                     <fo:table table-layout="fixed" width="100%">
@@ -451,17 +485,18 @@
                                 <fo:table-body>
                                     <xsl:for-each select="Invoice/data">
                                         <xsl:for-each select="assets">
-
                                             <xsl:for-each select="events">
-                                                <xsl:if test="not(../wasActive) or position() > 1">
+                                                <xsl:if test="../wasActive = 'false' or position() > 1">
                                                     <fo:table-row display-align="center">
                                                         <fo:table-cell padding="1pt">
                                                             <fo:block>
                                                                 <xsl:choose>
-                                                                    <xsl:when test="eventType = 'ACTIVATED' and position() = 1 and ../wasActive">
-                                                                        <fo:inline text-align="center">-</fo:inline>
+                                                                    <xsl:when test="eventType = 'ACTIVATED' and position() = 1 and ../wasActive = 'false'">
+                                                                        <fo:block font-family="MaterialIcons" font-size="14pt" color="#4CAF50">
+                                                                            &#xe147;
+                                                                        </fo:block>
                                                                     </xsl:when>
-                                                                    <xsl:when test="eventType = 'ACTIVATED' and (position() > 1 or not(../wasActive))">
+                                                                    <xsl:when test="eventType = 'ACTIVATED' and (position() > 1 or ../wasActive = 'false')">
                                                                         <fo:block font-family="MaterialIcons" font-size="14pt" color="#4CAF50">
                                                                             &#xe147;
                                                                         </fo:block>
@@ -471,6 +506,9 @@
                                                                             &#xe5c9;
                                                                         </fo:block>
                                                                     </xsl:when>
+                                                                    <xsl:otherwise>
+                                                                        <fo:block>?</fo:block>
+                                                                    </xsl:otherwise>
                                                                 </xsl:choose>
                                                             </fo:block>
                                                         </fo:table-cell>
@@ -489,9 +527,9 @@
                                                                 <xsl:value-of select="../asset/hostname"/>
                                                             </fo:block>
                                                         </fo:table-cell>
-
                                                     </fo:table-row>
                                                 </xsl:if>
+
                                             </xsl:for-each>
                                         </xsl:for-each>
                                     </xsl:for-each>

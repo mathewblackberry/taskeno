@@ -73,27 +73,20 @@ import {CredentialsDetailsComponent} from './credentials.component';
         <tr mat-header-row *matHeaderRowDef="displayedColumns" class="label-column"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="value-column"></tr>
       </table>
-      <h3 class="mat-title-medium px-2">Credentials</h3>
+      <h3 class="mat-title-medium px-2 py-4">Credentials</h3>
       <mat-tab-group>
 
         @if (routerDetailsForm.get('credentials')) {
-          <mat-tab label="Active">
-            <app-credentials-details [formGroup]="routerDetailsForm" [isEditMode]="isEditMode"/>
-          </mat-tab>
+          @if (defaultCredentials) {
+            <mat-tab label="Active">
+              <app-credentials-details [formGroup]="routerDetailsForm" [isEditMode]="isEditMode"/>
+            </mat-tab>
+            <mat-tab label="Default">
+              <app-default-credentials-detail [credentialFormGroup]="defaultCredentials" [isEditMode]="isEditMode"/>
+            </mat-tab>
+          }
         }
-
-        @if (defaultCredentials) {
-          <mat-tab label="Default">
-            <app-default-credentials-detail [credentialFormGroup]="defaultCredentials" [isEditMode]="isEditMode"/>
-          </mat-tab>
-
-        }
-
       </mat-tab-group>
-
-
-
-
     </form>
     @if (authService.isAdmin$ | async) {
       @if (config) {

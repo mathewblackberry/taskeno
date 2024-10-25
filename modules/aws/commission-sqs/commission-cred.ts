@@ -9,7 +9,7 @@ import {Asset, RouterDetails, Credential} from '../assetmanager/model';
 
 const sqsClient = new SQSClient({region: process.env.AWS_REGION});
 
-const dynamoDBClient = new DynamoDBClient({});
+const dynamoDBClient = new DynamoDBClient({region: process.env.AWS_REGION});
 const docClient = DynamoDBDocumentClient.from(dynamoDBClient);
 const TABLE_NAME: string = process.env.DYNAMODB_TABLE!;
 const RADIUS_SECRET: string = process.env.RADIUS_SECRET!;
@@ -40,9 +40,6 @@ const loginWithCredentials = async (apiUrl: string, credentials: Credential, caC
         keepAliveMsecs: 1000
     });
 
-    console.log(credentials.username);
-    console.log(credentials.password);
-
     const config = {
         headers: {
             Authorization: `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')}`
@@ -54,12 +51,12 @@ const loginWithCredentials = async (apiUrl: string, credentials: Credential, caC
     try {
         // Attempt to get users to verify login
         const response = await axios.get(`${apiUrl}/user`, config);
-        return { config, success: true };
+        return {config, success: true};
     } catch (err) {
-        return { config, success: false };
+        console.log(err);
+        return {config, success: false};
     }
 };
-
 
 const updateCredentialsOnRouter = async (fqdn: string, routerDetails: RouterDetails, newCredentials: Credential[]) => {
     const apiUrl = `https://${fqdn}/rest`;
@@ -79,17 +76,16 @@ const updateCredentialsOnRouter = async (fqdn: string, routerDetails: RouterDeta
     let success: boolean = false;
 
     const newCredential = routerDetails.credentials.find(c => c.username === 'api');
-    console.log(newCredential);
     if (newCredential) {
         console.log("Trying new credentials");
-        ({ config, success } = await loginWithCredentials(apiUrl, newCredential, caCert));
+        ({config, success} = await loginWithCredentials(apiUrl, newCredential, caCert));
     }
 
     // If login fails with new credentials, fall back to default credentials
     if (!success) {
         console.log("New credentials failed, trying default credentials");
-        const defaultCredential: Credential = { username: 'api', password: process.env.DEFAULT_API_PASSWORD! };
-        ({ config, success } = await loginWithCredentials(apiUrl, defaultCredential, caCert));
+        const defaultCredential: Credential = {username: 'api', password: process.env.DEFAULT_API_PASSWORD!};
+        ({config, success} = await loginWithCredentials(apiUrl, defaultCredential, caCert));
 
         if (!success) {
             console.error("Both new and default credentials failed");
@@ -111,10 +107,10 @@ const updateCredentialsOnRouter = async (fqdn: string, routerDetails: RouterDeta
 
             if (existingUser) {
                 // Update user password
-                console.log(`Updating: `)
+                console.log(`Updating User: `)
                 await axios.patch(`${apiUrl}/user/${existingUser['.id']}`, {password: credential.password, group: credential.username === 'admin' ? 'full' : credential.username}, config);
             } else {
-                console.log(`Adding: `);
+                console.log(`Adding User: `);
                 // Add new user
                 await axios.put(`${apiUrl}/user`, {name: credential.username, password: credential.password, group: credential.username === 'admin' ? 'full' : credential.username}, config);
             }
@@ -147,7 +143,6 @@ const saveCredentialsToDynamoDB = async (siteId: string, assetId: string, data: 
     }
 };
 
-
 const addOrUpdateRadiusServer = async (fqdn: string, radiusIp: string, router: Asset) => {
     const apiUrl = `https://${fqdn}/rest`;
 
@@ -168,14 +163,14 @@ const addOrUpdateRadiusServer = async (fqdn: string, radiusIp: string, router: A
     const newCredential = router.routerDetails!.credentials.find(c => c.username === 'api');
     if (newCredential) {
         console.log("Trying new credentials");
-        ({ config, success } = await loginWithCredentials(apiUrl, newCredential, caCert));
+        ({config, success} = await loginWithCredentials(apiUrl, newCredential, caCert));
     }
 
     // If login fails with new credentials, fall back to default credentials
     if (!success) {
         console.log("New credentials failed, trying default credentials");
-        const defaultCredential: Credential = { username: 'api', password: process.env.DEFAULT_API_PASSWORD! };
-        ({ config, success } = await loginWithCredentials(apiUrl, defaultCredential, caCert));
+        const defaultCredential: Credential = {username: 'api', password: process.env.DEFAULT_API_PASSWORD!};
+        ({config, success} = await loginWithCredentials(apiUrl, defaultCredential, caCert));
 
         if (!success) {
             console.error("Both new and default credentials failed");
@@ -225,6 +220,71 @@ const generateRandomPassword = (length: number): string => {
     return randomBytes(length).toString('base64').slice(0, length);
 };
 
+const getRouterSerialNumber = async (fqdn: string, routerDetails: RouterDetails): Promise<string | null> => {
+    const apiUrl = `https://${fqdn}/rest`;
+
+    const caCertBase64 = process.env.CA_BASE64_CERT;
+    if (!caCertBase64) {
+        console.error("Custom CA certificate not provided");
+        return null;
+    }
+    const caCert = Buffer.from(caCertBase64, 'base64');
+
+    const httpsAgent = new https.Agent({
+        ca: caCert
+    });
+
+    let config: any;
+    let success: boolean = false;
+
+    const newCredential = routerDetails.credentials.find(c => c.username === 'api');
+    if (newCredential) {
+        ({config, success} = await loginWithCredentials(apiUrl, newCredential, caCert));
+    }
+
+    try {
+        // Perform the HTTPS request to the RouterOS REST API using basic auth
+        const response = await axios.get(`${apiUrl}/system/routerboard`, config);
+
+        // The response data contains the RouterOS system details
+        const data = response.data;
+        // Find and return the serial-number from the response data
+        if (data && data['serial-number']) {
+            return data['serial-number'];
+        }
+        return null; // Return null if serial number is not found
+    } catch
+        (error) {
+        console.error('Error retrieving serial number:', error);
+        return null;
+    }
+}
+
+const saveSerialToDynamoDB = async (siteId: string, assetId: string, data: Asset, serialNumber: string) => {
+    if (data.routerDetails)
+        data.routerDetails.serialNumber = serialNumber;
+    const params = {
+        TableName: TABLE_NAME,
+        Key: {
+            pk: `SITE#${siteId}`,
+            sk: `ASSET#${assetId}`
+        },
+        UpdateExpression: "set #data = :data",
+        ExpressionAttributeValues: {
+            ":data": data
+        },
+        ExpressionAttributeNames: {
+            '#data': 'data'
+        }
+    };
+
+    try {
+        await docClient.send(new UpdateCommand(params));
+    } catch (err) {
+        console.error("Error saving credentials to DynamoDB:", err);
+    }
+};
+
 export const handler: SQSHandler = async (event) => {
     for (const record of event.Records) {
         const message = record.body;
@@ -249,19 +309,23 @@ export const handler: SQSHandler = async (event) => {
             if (!credential) {
                 credential = {username, password: generateRandomPassword(username === 'backup' ? 64 : 24)};
                 existingCredentials.push(credential);
-                // newCredentials.push(credential);
             }
         }
 
         // Add or update credentials on the router
         await updateCredentialsOnRouter(fqdn, routerDetails, existingCredentials);
 
+        //todo remove
+        // const newCredential = routerDetails.credentials.find(c => c.username === 'api');
+        // await AddLTEKeepalive(fqdn, newCredential!);
 
         // Save new credentials to DynamoDB
         await saveCredentialsToDynamoDB(siteId, assetId, asset);
 
         await addOrUpdateRadiusServer(fqdn, RADIUS_SERVER, asset);
-
+        const serial = await getRouterSerialNumber(fqdn, routerDetails);
+        if (serial)
+            await saveSerialToDynamoDB(siteId, assetId, asset, serial);
         const deleteParams = {
             QueueUrl: process.env.QUEUE_URL!,
             ReceiptHandle: receiptHandle
@@ -269,10 +333,61 @@ export const handler: SQSHandler = async (event) => {
 
         try {
             await sqsClient.send(new DeleteMessageCommand(deleteParams));
-            console.log('Message deleted successfully');
         } catch (error) {
-            console.error('Error deleting message:', error);
+            console.error('Error deleting SQS message:', error);
         }
     }
 };
 
+const AddLTEKeepalive = async (fqdn: string, credentials: Credential) => {
+    const apiUrl = `https://${fqdn}/rest`;
+    const caCertBase64 = process.env.CA_BASE64_CERT;
+    if (!caCertBase64) {
+        console.error("Custom CA certificate not provided");
+        return;
+    }
+    const caCert = Buffer.from(caCertBase64, 'base64');
+
+    const httpsAgent = new https.Agent({
+        ca: caCert,
+        keepAlive: true,
+        keepAliveMsecs: 1000
+    });
+
+    const config = {
+        headers: {
+            Authorization: `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')}`
+        },
+        httpsAgent,
+        timeout: 5000
+    };
+
+    try {
+
+        const responseScript = await axios.get(`${apiUrl}/system/script`, config);
+        const foundScript = responseScript.data.find((script: any) => script.name === 'lte-keepalive');
+        if (foundScript) {
+            await axios.patch(`${apiUrl}/system/script/${foundScript['.id']}`, {name: 'lte-keepalive', source: '/ping 10.37.221.221 interface=lte1 count=1'}, config);
+        } else
+            await axios.put(`${apiUrl}/system/script`, {name: 'lte-keepalive', source: '/ping 10.37.221.221 interface=lte1 count=1'}, config);
+
+        const responseRoute = await axios.get(`${apiUrl}/ip/route`, config);
+
+        const foundRoute = responseRoute.data.find((script: any) => script['dst-address'] === '10.37.221.221/32');
+        if (foundRoute)
+            await axios.patch(`${apiUrl}/ip/route/${foundRoute['.id']}`, {"dst-address": "10.37.221.221/32", gateway: "lte1"}, config);
+        else
+            await axios.put(`${apiUrl}/ip/route`, {"dst-address": "10.37.221.221/32", gateway: "lte1"}, config);
+
+        const responseSched = await axios.get(`${apiUrl}/system/scheduler`, config);
+        const foundSched = responseSched.data.find((script: any) => script.name === 'lte-keepalive');
+        if (foundSched)
+            await axios.patch(`${apiUrl}/system/scheduler/${foundSched['.id']}`, {name: "lte-keepalive", interval: "90s", "on-event": "lte-keepalive"}, config);
+        else
+            await axios.put(`${apiUrl}/system/scheduler`, {name: "lte-keepalive", interval: "30s", "on-event": "lte-keepalive"}, config);
+
+    } catch (err) {
+        console.log(err);
+        return {config, success: false};
+    }
+}

@@ -2,10 +2,12 @@ import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult} from 'aws-lambda';
 import {activateAsset} from './activate_asset';
 import {getChartData} from './chart';
-import {commissionAsset} from './commission';
+import {commissionAsset, commissionAssetCred, updateSNMP} from './commission';
 import {processConfigRequest} from './config';
+import {flushCache, getAtAGlance} from './devicemonitor';
 import {generateInvoicesForTenant} from './invoice-generator';
 import {processKenoChildRequest} from './tenant.child';
+import {xeroredirect} from './xeroredirect';
 
 /**
  *
@@ -32,6 +34,8 @@ export const lambdaHandler: APIGatewayProxyHandler = async (event: APIGatewayPro
 
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'commission'))
             return {...response, ...await commissionAsset(pathComponents)};
+        else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'commissioncred'))
+            return {...response, ...await commissionAssetCred(pathComponents)};
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'activateasset'))
             return {...response, ...await activateAsset(pathComponents, true, event.body)};
         else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'deactivateasset'))
@@ -51,15 +55,33 @@ export const lambdaHandler: APIGatewayProxyHandler = async (event: APIGatewayPro
             const r = {...response, ...await processConfigRequest(bucketName, 'mikrotik-lte6-keno.config', JSON.parse(routerDetails.body), JSON.parse(siteDetails.body))};
             r.headers = {...r.headers, 'Content-Type': 'text/plain'}
             return r;
-        } else if (pathComponents[1] === 'site')
+        } else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'snmpupdate'))
+            return {...response, ...await updateSNMP(pathComponents)};
+        else if (pathComponents[1] === 'site')
             return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'SITE#', 0, role)};
+
     }
 
     if (pathComponents[1] === 'invoice' && event.httpMethod === 'POST') {
         if (role !== 'admin') {
             return {...response, ...{statusCode: 403, body: JSON.stringify({message: 'Forbidden'})}};
         }
-        return {...response, ...await generateInvoicesForTenant(pathComponents[0], '2024-07-31T14:00:00Z', '2024-08-31T13:59:59Z', TABLE_NAME, '2024-08-14T14:00:00Z', 'INV-034', 9823)};
+        return {...response, ...await generateInvoicesForTenant(pathComponents[0], body.startDate, body.endDate, TABLE_NAME, body.invoiceDate, body.overdueAmount)};
+    }
+
+    if (pathComponents[0] === 'xeroredirect' && event.httpMethod === 'POST') {
+        return {...response, ...await xeroredirect(event)};
+    }
+
+    if (pathComponents[1] === 'monitor') {
+        return {...response, ...await getAtAGlance(event)};
+    }
+
+    if (pathComponents[1] === 'flushcache') {
+        if (role !== 'admin') {
+            return {...response, ...{statusCode: 403, body: JSON.stringify({message: 'Forbidden'})}};
+        }
+        return {...response, ...await flushCache(event)}
     }
 
     if (!event.body) {

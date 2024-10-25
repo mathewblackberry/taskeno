@@ -2,6 +2,7 @@ import {GetObjectCommand, PutObjectCommand, S3Client} from '@aws-sdk/client-s3';
 import {DeleteMessageCommand, SQSClient} from '@aws-sdk/client-sqs';
 import {SQSHandler} from 'aws-lambda';
 import snmp from 'net-snmp';
+import Redis from 'ioredis';
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const s3Client = new S3Client({region: process.env.AWS_REGION});
@@ -13,10 +14,7 @@ export const handler: SQSHandler = async (event) => {
         const body = (JSON.parse(message));
         const {fqdn, hostname} = body;
         const receiptHandle = record.receiptHandle;
-
-
         console.log('Received message:', message);
-
         // Retrieve the file from S3 and update it if necessary
         const s3Params = {
             Bucket: S3_CONFIG_BUCKET,
@@ -39,9 +37,9 @@ export const handler: SQSHandler = async (event) => {
         monitorConfig.hosts.push({
             host: hostname,
             interfaces: [
-                { name: 'lo', port: interfaces["lo"] || 1},
-                { name: 'nbn', port: interfaces["ether1"] || 1},
-                { name: 'lte', port: interfaces["lte1"] || 1},
+                { name: 'lo', port: interfaces["lo"] || "1"},
+                { name: 'nbn', port: interfaces["ether1"] || "1"},
+                { name: 'lte', port: interfaces["lte1"] || "1"},
             ],
         });
 
@@ -53,6 +51,9 @@ export const handler: SQSHandler = async (event) => {
         });
 
         await s3Client.send(putObjectCommand);
+
+        const redis: Redis = new Redis(parseInt(process.env.REDIS_CLUSTER_PORT!), process.env.REDIS_CLUSTER_HOST!);
+        await redis.set(`monitor.json`, JSON.stringify(monitorConfig));
 
         // Delete the message from the queue
         const deleteParams = {
@@ -70,6 +71,7 @@ export const handler: SQSHandler = async (event) => {
 };
 
 const getSnmpInterfaces = async (hostname: string): Promise<{ [key: string]: string }> => {
+    console.log(`Getting SNMP Interfaces`);
     const session = snmp.createSession(hostname, "bsitaskenosnmp-ro");
     const oid = "1.3.6.1.2.1.2.2.1.2"; // ifDescr OID
     return new Promise((resolve, reject) => {

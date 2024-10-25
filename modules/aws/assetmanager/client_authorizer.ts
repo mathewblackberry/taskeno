@@ -26,9 +26,15 @@ interface Authorization {
 
 exports.lambdaHandler = async (event: any): Promise<AuthResponse> => {
     const token = event.headers.Authorization;
+    console.log(JSON.stringify(event, null, 2));
     const jwksUrl = process.env.JWKS_URL!;
     const decoded = jwt.decode(token, { complete: true });
     const kid: string | undefined = decoded?.header?.kid;
+
+
+    if(event.path === '/manager/xeroredirect'){
+        return generatePolicy('user', 'Allow', event.methodArn, {role: 'XERO'});
+    }
 
     try {
         const response: AxiosResponse<any, any> = await axios.get(jwksUrl);

@@ -108,6 +108,14 @@ const handleGetRequest = async (pathParameters: string[], TABLE_NAME: string, dd
             out = removeFields(out, ['password'])
         }
 
+            console.log(JSON.stringify(out,null,1));
+        if(out?.length == 2){
+            console.log(out[1].loopbacks.length);
+            console.log(out[1].loopbacks);
+            console.log(JSON.stringify(out[1].loopbacks));
+
+        }
+
         return {statusCode: 200, body: JSON.stringify(out)};
     }
 

@@ -4,6 +4,7 @@ import {FormArray, FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFor
 import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCardModule} from '@angular/material/card';
+import {MatDialog} from '@angular/material/dialog';
 import {MatExpansionModule} from "@angular/material/expansion";
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
@@ -33,12 +34,14 @@ import {SiteAssetService} from './services/site-asset-service';
 import {TileComponent} from './tile.component';
 import {IPValidators} from './validators/ip-cidr-validator';
 import {CommentsComponent} from './view/comment.component';
+import {DatePickerDialogComponent} from './view/invoice-selector-dialog';
 import {LanSubnetsComponent} from './view/lan-subnets.component';
 import {LiveToolsComponent} from './view/live-tools.component';
 import {MobileDetailsComponent} from './view/mobile-details.component';
 import {RouterDetailsComponent} from './view/router-details.component';
 
 import {RouterGeneralComponent} from './view/router-general.component';
+import {SiteEditDialogComponent} from './view/site-edit-dialog';
 
 @Component({
   selector: 'app-site-list',
@@ -51,7 +54,9 @@ import {RouterGeneralComponent} from './view/router-general.component';
   standalone: true
 })
 export class SiteListComponent implements OnInit {
+  pattern = /^[a-z]{6}r\d{2}m[a-z0-9]{3}$/
   assetForm: FormGroup;
+  siteForm: FormGroup;
   siteControl: FormControl<any> = new FormControl();
   sites: Site[] = [];
   fSites: Site[] = [];
@@ -63,6 +68,7 @@ export class SiteListComponent implements OnInit {
   nextSiteName: string = '';
   previousSiteName: string = '';
   authenticator: AuthenticatorService = inject(AuthenticatorService);
+  private dialog: MatDialog = inject(MatDialog);
   showActiveOnly = true;
   isEditMode: boolean = false;
 
@@ -70,6 +76,8 @@ export class SiteListComponent implements OnInit {
 
   constructor(private siteAssetService: SiteAssetService, private fb: FormBuilder) {
     this.assetForm = this.createAssetForm();
+    this.siteForm = this.createSiteForm();
+
   }
 
   get mobileDetailsForm(): FormGroup {
@@ -145,6 +153,7 @@ export class SiteListComponent implements OnInit {
         this.comments = [];
       }
     });
+    this.populateSiteForm(site);
   }
 
   onSelectAsset(asset: Asset): void {
@@ -170,7 +179,7 @@ export class SiteListComponent implements OnInit {
     if (!this.selectedSite) {
       site = this.fSites[0];
     } else {
-      console.log(JSON.stringify(this.fSites,null,2));
+      // console.log(JSON.stringify(this.fSites, null, 2));
       const currentIndex = this.fSites.findIndex(site => site.id === this.selectedSite!.id);
       const nextIndex = (currentIndex + 1) % this.fSites.length;
       site = this.fSites[nextIndex];
@@ -205,18 +214,54 @@ export class SiteListComponent implements OnInit {
     }
   }
 
+  createSiteForm(): FormGroup {
+    return this.fb.group({
+      id: ['', Validators.required],
+      name: ['', Validators.required],
+      address: ['', Validators.required],
+      address2: [''], // Optional field, no validators needed
+      city: ['', Validators.required],
+      state: ['', Validators.required],
+      postcode: ['', Validators.required],
+      phone: ['', [Validators.required, Validators.pattern(/^[0-9]*$/)]], // Example validation for phone numbers
+      email: ['', [Validators.required, Validators.email]],
+      latitude: [''],
+      longitude: [''],
+
+      active: [false, Validators.required] // Default to false, with a required validator
+    });
+  }
+
+  // Example function to populate the form with data
+  populateSiteForm(site: Site) {
+    this.siteForm.patchValue({
+      id: site.id,
+      name: site.name,
+      address: site.address,
+      address2: site.address2,
+      city: site.city,
+      state: site.state,
+      postcode: site.postcode,
+      phone: site.phone,
+      email: site.email,
+      latitude: site.latitude,
+      longitude: site.longitude,
+      active: site.active
+    });
+  }
+
   createAssetForm(): FormGroup {
     return this.fb.group({
       id: [''],
       hostname: ['', Validators.required],
-      terminals: [null, Validators.required],
+      terminals: [null],
       lanSubnets: this.fb.array([]),
       wanSubnets: this.fb.array([]),
       loopbacks: this.fb.array([]),
       carriageType: ['', Validators.required],
       carriageFNN: ['', Validators.required],
       carriagePort: ['', Validators.required],
-      FNN: ['', Validators.required],
+      FNN: [''],
       POI: ['', Validators.required],
       routerDetails: this.createRouterDetailsForm(),
       active: [false]
@@ -249,6 +294,7 @@ export class SiteListComponent implements OnInit {
     this.setSubnetDetailsArray(this.assetForm.get('lanSubnets') as FormArray, asset.lanSubnets);
     this.setIPv4CidrRangeArray(this.assetForm.get('wanSubnets') as FormArray, asset.wanSubnets, 'cidr notation');
     this.setIPv4CidrRangeArray(this.assetForm.get('loopbacks') as FormArray, asset.loopbacks, 'ip');
+    // console.log(JSON.stringify(asset.loopbacks,null,1));
     this.setRouterDetailsForm(this.assetForm.get('routerDetails') as FormGroup, asset.routerDetails);
   }
 
@@ -269,10 +315,10 @@ export class SiteListComponent implements OnInit {
     return this.fb.group({
       defaultCredentials: this.createCredentialForm(),
       credentials: this.fb.array([]),
-      serialNumber: [''],
+      serialNumber: ['', Validators.required],
       model: ['', Validators.required],
       manufacturer: ['', Validators.required],
-      mobileDetails: this.createMobileDetailsForm()
+      // mobileDetails: this.createMobileDetailsForm()
     });
   }
 
@@ -285,7 +331,16 @@ export class SiteListComponent implements OnInit {
     });
     this.setDefaultCredentialForm(form.get('defaultCredentials') as FormGroup, routerDetails.defaultCredentials);
     this.setCredentialsArray(form.get('credentials') as FormArray, routerDetails.credentials);
-    this.setMobileDetailsForm(form.get('mobileDetails') as FormGroup, routerDetails.mobileDetails);
+
+      // this.setMobileDetailsForm(form.get('mobileDetails') as FormGroup, routerDetails.mobileDetails);
+
+    if (routerDetails.mobileDetails) {
+      // Dynamically create and add mobileDetails if it exists in routerDetails
+      const mobileDetailsForm = this.createMobileDetailsForm();
+      form.addControl('mobileDetails', mobileDetailsForm);
+      this.setMobileDetailsForm(mobileDetailsForm, routerDetails.mobileDetails);
+    }
+
   }
 
   createCredentialForm(): FormGroup {
@@ -319,7 +374,7 @@ export class SiteListComponent implements OnInit {
       password: [''],
       firstName: [''],
       lastName: [''],
-      framedIP: ['',[IPValidators.ipCidrValidator('ip')]],
+      framedIP: ['', [IPValidators.ipCidrValidator('ip')]],
       framedRoutes: this.fb.array([]),
       simSerial: ['', Validators.pattern(/^\d{4}\s?\d{4}\s?\d{4}\s?\dN$/)],
       mobileNumber: ['', Validators.pattern(/^\d{3,4}\s?\d{3}\s?\d{3}$/)],
@@ -356,6 +411,102 @@ export class SiteListComponent implements OnInit {
         this.isEditMode = false;
       });
 
+  }
+
+  openSiteEditDialog(): void {
+    const dialogRef = this.dialog.open(SiteEditDialogComponent, {
+      width: '600px',
+      data: this.selectedSite
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+
+      if (result) {
+        this.siteAssetService.updateSite(result).subscribe((response) => {
+          const index = this.sites.findIndex(site => site.id === result.id);
+
+          if (index !== -1) {
+            this.sites[index] = result;
+            if (this.selectedSite?.id === result.id) {
+              this.selectedSite = result;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  openInvoiceDialog(): void {
+    const dialogRef = this.dialog.open(DatePickerDialogComponent, {
+      width: '600px',
+      data: this.selectedSite
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+
+      if (result) {
+        console.log(result);
+        this.siteAssetService.generateNewInvoice(result).subscribe(response => {
+          console.log(response);
+        });
+      }
+
+    });
+  }
+
+  flushCache(){
+    this.siteAssetService.flushCache().subscribe((response) => {
+
+    });
+  }
+
+  toggleSiteActive() {
+    const updatedSite: Site = JSON.parse(JSON.stringify(this.selectedSite));
+    updatedSite.active = !updatedSite.active;
+
+    this.siteAssetService.updateSite(updatedSite).subscribe((response) => {
+      const index = this.sites.findIndex(site => site.id === updatedSite.id);
+
+      if (index !== -1) {
+        this.sites[index] = updatedSite;
+        if (this.selectedSite?.id === updatedSite.id) {
+          this.selectedSite = updatedSite;
+        }
+      }
+    });
+
+  }
+
+  copyHostname(hostname: string) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(hostname).then(() => {
+          console.log('Password copied to clipboard');
+        },
+        err => {
+          console.error('Failed to copy password: ', err);
+        }
+      );
+    } else {
+      this.fallbackCopyText(hostname);
+    }
+  }
+
+  fallbackCopyText(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';  // Prevent scrolling to bottom of page in MS Edge.
+    textarea.style.left = '-9999px'; // Move textarea out of the viewport
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      const successful = document.execCommand('copy');
+      const msg = successful ? 'successful' : 'unsuccessful';
+      console.log(`Fallback: Copying text command was ${msg}`);
+    } catch (err) {
+      console.error('Fallback: Oops, unable to copy', err);
+    }
+    document.body.removeChild(textarea);
   }
 
 }

@@ -110,11 +110,33 @@ export class ChartComponent implements OnInit, OnChanges {
   public unit: string = 'kb/s';
   form: FormGroup;
 
+
+  ports_dc1 = [
+    { value: 'wan', label: 'WAN' },
+    { value: 'core', label: 'Core' },
+    { value: 'south', label: 'South' },
+    { value: 'north', label: 'North' },
+    { value: 'lo', label: 'Loopback' }
+  ];
+  ports_dc2 = [
+    {value: 'fwan', label: 'WAN'},
+    {value: 'core', label: 'Core'},
+    {value: 'south', label: 'South'},
+    {value: 'north', label: 'North'},
+    {value: 'lo', label: 'Loopback'}
+  ];
+
+  ports_venue = [
+    { value: 'nbn', label: 'NBN' },
+    { value: 'lte', label: 'Wireless' },
+    { value: 'lo', label: 'Loopback' },
+  ];
   ports = [
     { value: 'nbn', label: 'NBN' },
     { value: 'lte', label: 'Wireless' },
-    { value: 'lo', label: 'Loopback' }
+    { value: 'lo', label: 'Loopback' },
   ];
+
 
   timeRanges = [
     { value: '15m', label: 'Last 15 Minutes' },
@@ -142,6 +164,11 @@ export class ChartComponent implements OnInit, OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['asset'] && changes['asset'].currentValue && changes['asset'].previousValue && changes['asset'].currentValue.id != changes['asset'].previousValue.id) {
+      // console.log(changes['asset']);
+      if(changes['asset'].currentValue['hostname'].startsWith('tkowphr01')) this.ports  = this.ports_dc1;
+      else if(changes['asset'].currentValue['hostname'].startsWith('tkowphr02')) this.ports  = this.ports_dc2;
+      else this.ports = this.ports_venue;
+      this.form.patchValue({port: this.ports[0].value})
      this.rowData=[]
     }
   }

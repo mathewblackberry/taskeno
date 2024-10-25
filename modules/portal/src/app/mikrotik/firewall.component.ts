@@ -172,7 +172,7 @@ import {BooleanConverterPipe, HumanReadableBytesPipe} from '../human-readable-by
     }
 
     .table-icon.warn {
-      color: #b71c1c;
+        color: #b71c1c;
     }
 
     tr.mat-mdc-row:nth-of-type(2n+1) {

@@ -1,7 +1,6 @@
-import {Component, inject, Input} from '@angular/core';
+import {Component, Input} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCardModule} from '@angular/material/card';
-import {SiteAssetService} from './services/site-asset-service';
 
 @Component({
   selector: 'app-tile',
@@ -10,6 +9,7 @@ import {SiteAssetService} from './services/site-asset-service';
   template: `
     <mat-card class="tile">
       <button mat-raised-button color="primary" (click)="action()">{{ buttonText }}</button>
+      <span class="tile-message">{{ message }}</span>
     </mat-card>
   `,
   styles: [`
@@ -22,9 +22,15 @@ import {SiteAssetService} from './services/site-asset-service';
       margin: 10px;
     }
 
+    .tile-message {
+      padding-top: 4px;
+      font-size: 80%;
+      text-transform: uppercase;
+    }
   `]
 })
 export class TileComponent {
   @Input() action: () => void;
   @Input() buttonText: string;
+  @Input() message: string;
 }

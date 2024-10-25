@@ -11,6 +11,7 @@ import string
 import random
 import json
 
+
 # Function to generate CSR on MikroTik
 def generate_csr(api, cert_name, common_name):
     cert = api.path('certificate')
@@ -125,7 +126,6 @@ def upload_certificate(api, cert_name, signed_cert_pem):
     while time.time() - start_time < timeout:
         try:
             new_len = count_certificates(api)
-            print(f'{new_len} > {cert_len} : {new_len > cert_len}')
             if new_len > cert_len:
                 break
         except StopIteration:
@@ -185,7 +185,6 @@ def add_backup_user(api):
     else:
         raise TimeoutError("Public key file was not ready in time")
 
-    # Import the public key for the backup user
     ssh = api.path('user', 'ssh-keys')
     tuple(ssh('import', **{'user': 'backup', 'public-key-file': file_name}))
 
@@ -228,37 +227,26 @@ def connect_to_mikrotik(username, password, host, port=8728):
     )
 
 
-
 def load_ca_private_key_from_env():
-    # Retrieve CA private key as a single-line string from environment variable
     ca_private_key_pem = os.getenv('CA_PRIVATE_KEY')
-    # Replace `\n` with actual newlines to convert it back to PEM format
     ca_private_key_pem = ca_private_key_pem.replace('\\n', '\n')
-    # Load the CA private key
     return ca_private_key_pem
 
 
 def load_ca_cert_from_env():
-    # Retrieve CA private key as a single-line string from environment variable
     ca_certificate_pem = os.getenv('CA_CERTIFICATE')
-
-    # Replace `\n` with actual newlines to convert it back to PEM format
     ca_certificate_pem = ca_certificate_pem.replace('\\n', '\n')
-
-    # Load the CA certificate key
     return ca_certificate_pem
 
 
 def cleanup_files(api, cert_name):
     files_to_remove = [f'certificate-request.pem', f'{cert_name}.crt', f'certificate-request_key.pem']
-
     for file_name in files_to_remove:
         try:
             file = next(f for f in api.path('file') if f['name'] == file_name)
             api.path('file').remove(file_name)
         except StopIteration:
             print(f"File {file_name} not found or already removed.")
-
     cert = api.path('certificate')
     cert('find', **{'name': f'{cert_name}-request'})
     existing_cert = list(cert) if cert is not None else []
@@ -269,29 +257,17 @@ def cleanup_files(api, cert_name):
 def doit(host, hostname):
     username = os.environ['ROUTER_USER']
     password = os.environ['ROUTER_PASSWORD']
-    print(host)
-    print(hostname)
     api = connect_to_mikrotik(username, password, host)
-    print('connected')
     cert_name = 'bsi'
     common_name = f'{hostname}.nms.blacksaltit.com.au'
-    # Generate CSR on MikroTik
     csr_pem = generate_csr(api, cert_name, common_name)
-
-    # Retrieve CA details from environment variables
     ca_private_key_pem = load_ca_private_key_from_env()
     ca_cert_pem = load_ca_cert_from_env()
     ca_key_password = os.getenv('CA_KEY_PASSWORD')
-    # Sign the CSR
     signed_cert_pem = sign_csr(csr_pem, ca_private_key_pem, ca_cert_pem, ca_key_password, host, hostname)
-
-    # Upload and install the signed certificate on MikroTik
     upload_certificate(api, cert_name, signed_cert_pem)
-
     cleanup_files(api, cert_name)
-
-    add_backup_user(api);
-
+    add_backup_user(api)
     return {
         'statusCode': 200,
         'body': json.dumps({'message': 'Certificate Updated Successfully'})

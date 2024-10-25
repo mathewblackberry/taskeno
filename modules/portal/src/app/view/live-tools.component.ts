@@ -80,10 +80,12 @@ import {InvoiceEventDialogComponent} from './invoice-event-component';
         <div class="tab-pane fade" id="v-pills-action" role="tabpanel" aria-labelledby="v-pills-addresses-tab">
           <div class="tile-wrapper">
             @if (authService.isAdmin$ | async) {
-              <app-tile buttonText="Update Certificate" [action]="updateCert"/>
-              <app-tile buttonText="Make Router Active" *ngIf="!asset.active" [action]="openActivateInvoiceEventDialog"/>
-              <app-tile buttonText="Make Router Inactive" *ngIf="asset.active" [action]="openDectivateInvoiceEventDialog"/>
-              <app-tile buttonText="Commission" [action]="commission"/>
+              <app-tile buttonText="Load Certs - Step 1" [action]="updateCert" message="Must be complete prior to 2 & 3"/>
+              <app-tile buttonText="Commission - Step 2" [action]="commissioncred" message="Load Credentials"/>
+              <app-tile buttonText="Commission - Step 3" [action]="snmpupdate" message="Update SNMP"/>
+              <app-tile buttonText="Commission - Step 4" [action]="commission" message="Monitoring - (Post Install Only)"/>
+              <app-tile buttonText="Activate Billing" *ngIf="!asset.active" [action]="openActivateInvoiceEventDialog"/>
+              <app-tile buttonText="Deactivate Billing" *ngIf="asset.active" [action]="openDectivateInvoiceEventDialog"/>
             }
           </div>
         </div>
@@ -192,6 +194,21 @@ export class LiveToolsComponent implements OnChanges, OnInit {
       this.site.active = false;
       this.activeChange.emit(false);
       // }
+    });
+  }
+  commissioncred = () => {
+    this.siteAssetService.commissionRouterCreds
+    (this.site.id, this.asset.id).subscribe(response => {
+      this.asset.active = false;
+      this.site.active = false;
+      this.activeChange.emit(false);
+    });
+  }
+
+
+  snmpupdate = () => {
+    this.siteAssetService.updateRouterSNMP(this.site.id, this.asset.id).subscribe(response => {
+
     });
   }
 

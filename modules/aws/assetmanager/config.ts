@@ -82,7 +82,7 @@ const findnetworkipplus = (cidr_string: string, n: number): string => {
     console.log(n);
     const cidr: IPv4CidrRange = IPv4CidrRange.fromCidr(cidr_string);
     let finalip: IPv4 = cidr.getFirst();
-    for (let i = 0; i < n; i++){
+    for (let i = 0; i < n; i++) {
         console.log(finalip.toString());
         finalip = finalip.nextIPNumber()
     }
@@ -90,9 +90,12 @@ const findnetworkipplus = (cidr_string: string, n: number): string => {
     return finalip.toString();
 };
 
-
-
-
+const ifEven = (cidr: string, even: string, odd: string): string => {
+    const [ipAddress, subnet] = cidr.split('/');
+    const parts = ipAddress.split('.');
+    const isEven = parseInt(parts[3]) % 2 === 0;
+    return isEven ? even : odd;
+};
 
 const functions: { [key: string]: (config: Config, args: string[]) => string } = {
     ipplus: (config: Config, args: string[]): string => {
@@ -142,6 +145,14 @@ const functions: { [key: string]: (config: Config, args: string[]) => string } =
             return findnetworkipplus(cidr, parseInt(increment));
         }
         return '';
+    },
+    ifEven: (config: Config, args: string[]): string => {
+        const[ipkey, even, odd] = args;
+        const cidr = getValue(config, ipkey);
+        if (typeof cidr === 'string') {
+            return ifEven(cidr,even,odd);
+        }
+        return even;
     }
     // Add more functions here as needed
 };

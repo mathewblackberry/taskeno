@@ -12,7 +12,7 @@
         <state>TAS</state>
         <email>mgiizel@federalgroup.com.au</email>
     </tenant>
-    <invoiceId>INV-034</invoiceId>
+    <invoiceId>INV-1070</invoiceId>
     <invoiceDate>15 Aug 2024</invoiceDate>
     <dueDate>29 Aug 2024</dueDate>
     <data>
@@ -30,6 +30,7 @@
             <postcode>7310</postcode>
             <state>TAS</state>
         </site>
+        <siteTotal>285.48</siteTotal>
         <assets>
             <asset>
                 <FNN>N1044780R</FNN>
@@ -40,97 +41,9 @@
                 <carriageType>FTTN</carriageType>
                 <hostname>tkoaler01mlt6</hostname>
                 <id>2686b078-9259-4309-9b34-1997539257ba</id>
-                <lanSubnets>
-                    <subnet>10.22.4.0/28</subnet>
-                    <hosts>
-                        <name>Network Address</name>
-                        <active>true</active>
-                        <ip>10.22.4.0</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Default Gateway</name>
-                        <active>true</active>
-                        <ip>10.22.4.1</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Terminal 1</name>
-                        <active>true</active>
-                        <ip>10.22.4.2</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Terminal 2</name>
-                        <active>true</active>
-                        <ip>10.22.4.3</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.4</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.5</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.6</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.7</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.8</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.9</ip>
-                    </hosts>
-                    <hosts>
-                        <name>KDS</name>
-                        <active>true</active>
-                        <ip>10.22.4.10</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.11</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.12</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.13</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.4.14</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Broadcast Address</name>
-                        <active>true</active>
-                        <ip>10.22.4.15</ip>
-                    </hosts>
-                </lanSubnets>
                 <loopbacks>172.27.244.0</loopbacks>
                 <routerDetails>
                     <model>Chateau LTE6 - D53G-5HacD2HnD-TC&amp;FG621-EA</model>
-                    <defaultCredentials>
-                        <purpose/>
-                        <password/>
-                        <username/>
-                    </defaultCredentials>
                     <serialNumber>null</serialNumber>
                     <mobileDetails>
                         <firstName>MobileBU</firstName>
@@ -145,21 +58,6 @@
                         <framedRoutes>172.27.244.0/32</framedRoutes>
                         <username>aler01</username>
                     </mobileDetails>
-                    <credentials>
-                        <purpose/>
-                        <password>iObPb0gq1j_Ot@^G</password>
-                        <username>admin</username>
-                    </credentials>
-                    <credentials>
-                        <purpose/>
-                        <password>kEKFUIq0RZ+CbBP0eaqQmBIn</password>
-                        <username>api</username>
-                    </credentials>
-                    <credentials>
-                        <purpose/>
-                        <password>AEomQ6em5JvnXB45fMFpttYdffCcnF/IMLr5kZZaZhQ2EcYWNrq6AKTTm2ClYmcd</password>
-                        <username>backup</username>
-                    </credentials>
                     <manufacturer>Mikrotik</manufacturer>
                 </routerDetails>
                 <terminals>2</terminals>
@@ -234,6 +132,7 @@
             <postcode>7321</postcode>
             <state>TAS</state>
         </site>
+        <siteTotal>55.00</siteTotal>
         <assets>
             <asset>
                 <FNN>null</FNN>
@@ -244,97 +143,9 @@
                 <carriageType>NextG</carriageType>
                 <hostname>tkotllr01mlt6</hostname>
                 <id>da838277-6f30-474b-89f8-2ba678e53987</id>
-                <lanSubnets>
-                    <subnet>10.22.7.112/28</subnet>
-                    <hosts>
-                        <name>Network Address</name>
-                        <active>true</active>
-                        <ip>10.22.7.112</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Default Gateway</name>
-                        <active>true</active>
-                        <ip>10.22.7.113</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Terminal 1</name>
-                        <active>true</active>
-                        <ip>10.22.7.114</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.115</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.116</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.117</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.118</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.119</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.120</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.121</ip>
-                    </hosts>
-                    <hosts>
-                        <name>KDS</name>
-                        <active>true</active>
-                        <ip>10.22.7.122</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.123</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.124</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.125</ip>
-                    </hosts>
-                    <hosts>
-                        <name/>
-                        <active>false</active>
-                        <ip>10.22.7.126</ip>
-                    </hosts>
-                    <hosts>
-                        <name>Broadcast Address</name>
-                        <active>true</active>
-                        <ip>10.22.7.127</ip>
-                    </hosts>
-                </lanSubnets>
                 <loopbacks>172.27.244.141</loopbacks>
                 <routerDetails>
                     <model>Chateau LTE6 - D53G-5HacD2HnD-TC&amp;FG621-EA</model>
-                    <defaultCredentials>
-                        <purpose/>
-                        <password/>
-                        <username/>
-                    </defaultCredentials>
                     <serialNumber>HEY09D4H0P6</serialNumber>
                     <mobileDetails>
                         <firstName>null</firstName>
@@ -349,11 +160,6 @@
                         <framedRoutes>172.27.244.141/32</framedRoutes>
                         <username>midlandsho</username>
                     </mobileDetails>
-                    <credentials>
-                        <purpose/>
-                        <password>$n33mhBONlwIQ*Ze</password>
-                        <username>admin</username>
-                    </credentials>
                     <manufacturer>Mikrotik</manufacturer>
                 </routerDetails>
                 <terminals>1</terminals>
@@ -375,11 +181,11 @@
             <wasActive>true</wasActive>
         </assets>
     </data>
-    <totalExGst>9999.60</totalExGst>
-    <gst>999.96</gst>
-    <totalIncGst>10999.56</totalIncGst>
+    <totalExGst>340.48</totalExGst>
+    <gst>34.05</gst>
+    <totalIncGst>374.53</totalIncGst>
     <overdueIncGst>9823.00</overdueIncGst>
-    <totalDue>20822.56</totalDue>
+    <totalDue>10197.53</totalDue>
     <periodStartDate>01 Aug 2024</periodStartDate>
     <periodEndDate>31 Aug 2024</periodEndDate>
 </Invoice>
