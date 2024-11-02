@@ -38,6 +38,7 @@ import {DatePickerDialogComponent} from './view/invoice-selector-dialog';
 import {LanSubnetsComponent} from './view/lan-subnets.component';
 import {LiveToolsComponent} from './view/live-tools.component';
 import {MobileDetailsComponent} from './view/mobile-details.component';
+import {ModemAddDialogComponent} from './view/modem-add-dialog';
 import {RouterDetailsComponent} from './view/router-details.component';
 
 import {RouterGeneralComponent} from './view/router-general.component';
@@ -102,7 +103,9 @@ export class SiteListComponent implements OnInit {
         sites.forEach(site => {
           if (site.name == undefined) console.log(site);
         });
-        this.sites = sites.sort((a: Site, b: Site) => a.name.localeCompare(b.name));
+        this.sites = sites.sort((a: Site, b: Site) => {
+          console.log(a.name);
+          return a.name.localeCompare(b.name)});
         this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => typeof value === 'string' ? value : value?.name), map(name => name ? this._filterSites(name) : this.sites.slice()));
         this.updateFilteredSites();
         this.selectNextSite();
@@ -445,9 +448,9 @@ export class SiteListComponent implements OnInit {
     dialogRef.afterClosed().subscribe(result => {
 
       if (result) {
-        console.log(result);
+        console.log(JSON.stringify(result,null,1));
         this.siteAssetService.generateNewInvoice(result).subscribe(response => {
-          console.log(response);
+          console.log(JSON.stringify(response,null,1));
         });
       }
 
@@ -507,6 +510,21 @@ export class SiteListComponent implements OnInit {
       console.error('Fallback: Oops, unable to copy', err);
     }
     document.body.removeChild(textarea);
+  }
+
+  openSerialNumberDialog(): void {
+    const dialogRef = this.dialog.open(ModemAddDialogComponent, {
+      width: '500px'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('Serial number:', result);
+        this.siteAssetService.addModem(result, this.selectedAsset?.hostname!, this.selectedSite?.id!).subscribe(result => {
+
+        });
+      }
+    });
   }
 
 }

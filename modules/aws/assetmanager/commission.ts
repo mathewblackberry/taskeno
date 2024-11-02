@@ -3,7 +3,7 @@ import {ChangeResourceRecordSetsCommand, ChangeResourceRecordSetsCommandInput, L
 import {SendMessageCommand, SendMessageCommandInput, SQSClient} from '@aws-sdk/client-sqs';
 import {DynamoDBDocumentClient, GetCommand} from '@aws-sdk/lib-dynamodb';
 import {APIGatewayProxyResult} from 'aws-lambda';
-import {SESClient, SendEmailCommand} from '@aws-sdk/client-ses';
+import {SESClient, SendEmailCommand, SendEmailCommandInput} from '@aws-sdk/client-ses';
 import https from 'https';
 import axios from "axios";
 import {Asset, Credential, Site} from './model';
@@ -111,9 +111,10 @@ export const commissionAsset = async (pathParameters: string[]): Promise<APIGate
     const site = ddb_site.Item?.data;
 
     if (site) {
-        const params = {
+        const params: SendEmailCommandInput = {
             Destination: {
-                ToAddresses: ['accounts@blacksaltit.com.au']
+                ToAddresses: ['accounts@blacksaltit.com.au', 'help@taskeno.com.au'],
+                CcAddresses: ['jkoay@federalit.net']
             },
             Message: {
                 Body: {

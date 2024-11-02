@@ -6,6 +6,7 @@ import {commissionAsset, commissionAssetCred, updateSNMP} from './commission';
 import {processConfigRequest} from './config';
 import {flushCache, getAtAGlance} from './devicemonitor';
 import {generateInvoicesForTenant} from './invoice-generator';
+import {createAsset} from './modemcreate';
 import {processKenoChildRequest} from './tenant.child';
 import {xeroredirect} from './xeroredirect';
 
@@ -57,6 +58,8 @@ export const lambdaHandler: APIGatewayProxyHandler = async (event: APIGatewayPro
             return r;
         } else if ((pathComponents[1] === 'site') && (pathComponents[3] === 'snmpupdate'))
             return {...response, ...await updateSNMP(pathComponents)};
+        else if ((pathComponents[1]=== 'site')&&(pathComponents[3] === 'newmodem'))
+            return {...response, ...await createAsset(body, pathComponents, TABLE_NAME)}
         else if (pathComponents[1] === 'site')
             return {...response, ...await processKenoChildRequest(event.httpMethod, body, pathComponents, TABLE_NAME, ddbClient, 'TENANT#', 'SITE#', 0, role)};
 

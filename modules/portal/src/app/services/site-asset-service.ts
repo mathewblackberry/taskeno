@@ -9,8 +9,12 @@ import {ToastService} from './toast-service';
 })
 export class SiteAssetService {
 
+  // private portalUrl = 'https://vpce-04fe1db0fe67d8e08-0as7hwth.execute-api.ap-southeast-2.vpce.amazonaws.com/prod/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
   private portalUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
-  private toolUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
+  // private portalUrl = 'https://api.nms.blacksaltit.com.au/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
+  // private toolUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
+  private toolUrl = 'https://vpce-04fe1db0fe67d8e08-0as7hwth.execute-api.ap-southeast-2.vpce.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
+  // private toolUrl = 'https://api.nms.blacksaltit.com.au/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
 
   constructor(private http: HttpClient, private toastService: ToastService) {
   }
@@ -123,6 +127,10 @@ export class SiteAssetService {
 
   flushCache(): Observable<any> {
     return this.http.get(`${this.portalUrl}/flushcache`);
+  }
+
+  addModem(serialNumber: string, hostname: string, siteId: string): Observable<any>{
+    return this.http.post<any>(`${this.portalUrl}/site/${siteId}/newmodem`, {serialNumber, hostname});
   }
 
 }

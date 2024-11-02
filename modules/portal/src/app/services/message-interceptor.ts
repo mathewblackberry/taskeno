@@ -12,12 +12,14 @@ export const messageInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, nex
     tap(event => {
       // @ts-ignore
       if (event instanceof HttpResponse && event.body && event.body.message) {
-        console.log(event.body);
+        console.log(JSON.stringify(event.body,null,1));
         // @ts-ignore
         toastService.showSuccessAlert(event.body.message);
       }
     }),
     catchError((error: HttpErrorResponse) => {
+      console.log('error');
+      console.log(JSON.stringify(error,null,1));
       if (error.error && error.error.message) {
         toastService.showErrorAlert(error.error.message);
       }

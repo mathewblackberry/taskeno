@@ -54,21 +54,21 @@ export const handler = async (event: any): Promise<any> => {
             glance = {assets: []};
             for (const result of results) {
                 if (result?.data) {
-                    await updateGlanceAssets(glance, result.hostname, result.data, result.interfaces, redis);
+                    await updateGlanceAssets(glance, result.hostname, result.data, result.interfaces, redis, result.routeData);
                 } else {
-                    await updateGlanceAssets(glance, result.hostname, [], result.interfaces, redis);
+                    await updateGlanceAssets(glance, result.hostname, [], result.interfaces, redis, result.routeData);
                     console.error(`Failed to get data for ${result.hostname}: ${result.error}`);
                 }
             }
 
             // Save the updated glance object back to Redis
-            console.log(`Updated to Cache: ${JSON.stringify(glance, null, 2)}`);
+            // console.log(`Updated to Cache: ${JSON.stringify(glance, null, 2)}`);
             const send: string = JSON.stringify(glance)
             await redis.set('glance', send);
 
             // glance.assets.sort(sortAssets)
 
-            const hash: string =  objectHash(send, {
+            const hash: string = objectHash(send, {
                 algorithm: 'sha1',
                 encoding: 'hex',
                 respectType: false,
@@ -95,7 +95,6 @@ export const handler = async (event: any): Promise<any> => {
 
 };
 
-
 function sortAssets(a: GlanceAsset, b: GlanceAsset): number {
     if (a.status !== b.status)
         return a.status - b.status;
@@ -103,8 +102,6 @@ function sortAssets(a: GlanceAsset, b: GlanceAsset): number {
         return a.name.localeCompare(b.name);
     return a.hostname.localeCompare(b.hostname);
 }
-
-
 
 const loginWithCredentials = async (apiUrl: string, credentials: Credential, caCert: Buffer) => {
     const httpsAgent = new https.Agent({
@@ -161,12 +158,27 @@ const getInterfaceStatus = async (hostname: string, credentials: Credential[], r
         // After successful login, fetch the interface status
 
         try {
-            console.log('getting data');
+            // console.log('getting data');
             const response = await axios.get(`${apiUrl}/interface`, config);
-            console.log(hostname);
-            console.log(JSON.stringify(response.data, null, 1));
+            // console.log(hostname);
+            // console.log(JSON.stringify(response.data, null, 1));
+
             // console.log(`Response from ${apiUrl}/interface:`, response.data);
-            return {hostname, data: response.data, interfaces};
+
+            let routeData = [];
+            if (hostname.endsWith('mlt6')) {
+                try {
+                    const routeResponse = await axios.get(`${apiUrl}/ip/route`, config);
+                    routeData = routeResponse.data;
+                    console.log('here');
+                    console.log(hostname);
+                    console.log(JSON.stringify(routeData, null, 1));
+                } catch (err: any) {
+                    console.error(`Failed to get route data for ${hostname}: ${err.message}`);
+                }
+            }
+
+            return {hostname, data: response.data, interfaces, routeData};
 
         } catch (err: any) {
             return {hostname, error: 'Could not connect to router.', interfaces};
@@ -180,7 +192,7 @@ const getInterfaceStatus = async (hostname: string, credentials: Credential[], r
 
 async function getConfigFile(redis: Redis): Promise<any> {
     const monitor: string | null = await (redis.get(`monitor.json`));
-    console.log(monitor);
+    // console.log(monitor);
     if (monitor)
         return JSON.stringify(monitor);
 
@@ -229,7 +241,7 @@ export async function getCredentials(redis: Redis, hostname: string): Promise<Cr
     // console.log(`Cached: ${hostname} ${cachedCredentials}`);
 
     if (cachedCredentials && cachedSite) {
-        console.log(`Credentials found in Redis for ${hostname}`);
+        // console.log(`Credentials found in Redis for ${hostname}`);
         return JSON.parse(cachedCredentials) as Credential;
     }
 
@@ -289,12 +301,12 @@ export async function getCredentials(redis: Redis, hostname: string): Promise<Cr
     // Step 4: Store the credentials in Redis
     await redis.set(credKey, JSON.stringify(apiCredential));
 
-    console.log(`Credentials stored in Redis for ${hostname}`);
+    // console.log(`Credentials stored in Redis for ${hostname}`);
 
     return apiCredential;
 }
 
-const updateGlanceAssets = async (glance: Glance, hostname: string, data: any[], interfaces: any[], redis: Redis) => {
+const updateGlanceAssets = async (glance: Glance, hostname: string, data: any[], interfaces: any[], redis: Redis, routeData: any[]) => {
     const siteKey = `api_site_${hostname}`;
     // console.log('Updating glance for hostname:', hostname);
     // console.log('Data received:', data);
@@ -307,19 +319,38 @@ const updateGlanceAssets = async (glance: Glance, hostname: string, data: any[],
     const runningStatuses: boolean[] = [];
 
     const updatedInterfaces: (GlanceInterfaces)[] = interfaces.map((intf: any) => {
-        console.log(intf.port);
+        // console.log(intf.port);
         const int_name = port_map.find(e => e.name === intf.name);
-        if(int_name){
-            console.log(int_name.interface);
+        // if(int_name){
+        //     console.log(int_name.interface);
+        // }
+        const matchingData = data.find(d => d['name'] === int_name?.interface); //d['.id'] === `*${intf.port}`);
+        let isRunning = matchingData ? matchingData.running === 'true' : false;
+
+        console.log(int_name?.interface);
+        if (hostname.endsWith('mlt6') && isRunning) {
+            const hasDefaultRoute = routeData.some(
+                route => {
+                    return route['dst-address'] === '0.0.0.0/0' &&
+                        route['immediate-gw'].endsWith(int_name?.interface)
+
+                }
+            );
+
+            console.log(hasDefaultRoute);
+
+            isRunning = isRunning && hasDefaultRoute;
         }
-        const matchingData = data.find(d =>  d['name'] === int_name?.interface); //d['.id'] === `*${intf.port}`);
-        const isRunning = matchingData ? matchingData.running === 'true' : false;
-        runningStatuses.push(isRunning);
+
+        if (int_name?.interface !== 'lo')
+            runningStatuses.push(isRunning);
         return {
             name: intf.name,
             running: isRunning
         };
     }).filter(intf => intf.name !== 'lo');
+
+    console.log(JSON.stringify(updatedInterfaces, null, 1));
 
     // Determine the status based on runningStatuses
     let status: number;
@@ -336,14 +367,14 @@ const updateGlanceAssets = async (glance: Glance, hostname: string, data: any[],
     if (asset) {
         // Update existing asset's status and interfaces
         const name = await redis.get(siteKey)
-        console.log(`name 1: ${name}`)
+        // console.log(`name 1: ${name}`)
         asset.name = name ? name : 'Unknown';
         asset.status = status;
         asset.interfaces = updatedInterfaces;
     } else {
         // Add new asset with status and interfaces
         const name = await redis.get(siteKey)
-        console.log(`name 2: ${name}`)
+        // console.log(`name 2: ${name}`)
         const newAsset: GlanceAsset = {
             name: name ? name : 'Unknown', // Or any other naming convention
             hostname,

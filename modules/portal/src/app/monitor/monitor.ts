@@ -21,7 +21,7 @@ import {WebSocketService} from '../services/WebSocketService';
         @if (asset.status === 0) {
           <div class="router outage">
             <div class="router-icon">
-              <mat-icon fontSet="fa" fontIcon="fa-face-anguished" class="fa-regular"></mat-icon>
+              <mat-icon fontSet="fa" fontIcon="fa-seal-exclamation" class="fa-regular"></mat-icon>
             </div>
             <div class="site">
               <span class="mat-label-small" [matTooltip]="asset.name">{{ asset.name }}</span>
@@ -48,7 +48,7 @@ import {WebSocketService} from '../services/WebSocketService';
         } @else {
           <div class="router active">
             <div class="router-icon">
-              <mat-icon fontSet="fa" fontIcon="fa-face-smile" class="fa-regular fa-active"></mat-icon>
+              <mat-icon fontSet="fa" fontIcon="fa-badge-check" class="fa-duotone fa-active"></mat-icon>
             </div>
             <div class="site">
               <span class="mat-label-small" [matTooltip]="asset.name">{{ asset.name }}</span>
@@ -127,6 +127,20 @@ import {WebSocketService} from '../services/WebSocketService';
       background-color: rgba(28, 183, 28, 0.5);
     }
 
+    .devices .router.active > div:first-child {
+      padding: 10px 10px 4px 10px;
+    }
+
+
+
+    .devices .router.active .router-icon mat-icon {
+      color: rgba(28, 100, 28, 1);
+    }
+
+    .devices .router.outage .router-icon mat-icon {
+      color: rgba(100, 28, 28, 1);
+    }
+
     .devices .router > div:first-child {
       padding: 24px 24px 4px 24px;
       display: flex;
@@ -200,7 +214,8 @@ export class MonitorComponent implements OnInit, OnDestroy {
       const tenantId = params.get('tenantId');
       console.log(this.route);
       if (tenantId) {
-        this.webSocketService.url = `wss://upoeryyww0.execute-api.ap-southeast-2.amazonaws.com/production/?tenantId=${tenantId}`;
+        this.webSocketService.url = `wss://monitorws.blacksaltit.com.au/?tenantId=${tenantId}`;
+        // this.webSocketService.url = `wss://upoeryyww0.execute-api.ap-southeast-2.amazonaws.com/production/?tenantId=${tenantId}`;
         this.webSocketService.connect().subscribe({
           next: (result) => {
             if (result) {
