@@ -60,6 +60,9 @@ import {PasswordFieldComponent} from '../password-field.component';
               @if (credentials.at(i).get('password')?.value) {
                 <ng-container>
                   <app-password-field [password]="credentials.at(i).get('password')?.value"></app-password-field>
+<!--                  @if(hostname){-->
+<!--                    <a href="winbox://{{credentials.at(i).get('username')?.value}}:{{credentials.at(i).get('password')?.value}}@{{hostname}}.nms.blacksaltit.com.au">Load</a>-->
+<!--                  }-->
                 </ng-container>
               } @else {
                 **********
@@ -102,6 +105,7 @@ export class CredentialsDetailsComponent {
   @Input() isEditMode = false;
   @Input() displayedColumns: string[] = ['username', 'password', 'purpose'];
   @Input() formGroup: FormGroup
+  @Input() hostname: string;
 
   get credentials(): FormArray {
     return this.formGroup.get('credentials') as FormArray;

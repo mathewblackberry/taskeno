@@ -16,9 +16,9 @@
                 <!-- Layout for subsequent pages -->
                 <fo:simple-page-master master-name="rest-pages"
                                        page-width="210mm" page-height="297mm"
-                                       margin-top="20mm" margin-bottom="2mm" margin-left="20mm" margin-right="20mm">
-                    <fo:region-body/>
-                    <fo:region-before extent="30mm"/>
+                                       margin-top="20mm" margin-bottom="10mm" margin-left="20mm" margin-right="20mm">
+                    <fo:region-body margin-bottom="12mm" margin-top="10mm"/>
+                    <fo:region-before extent="30mm" region-name="xsl-region-before-rest"/>
                     <fo:region-after extent="10mm"/>
                 </fo:simple-page-master>
 
@@ -32,6 +32,13 @@
 
             </fo:layout-master-set>
             <fo:page-sequence master-reference="document-master">
+                <fo:static-content flow-name="xsl-region-before-rest">
+                    <fo:block font-size="10pt">
+                        <fo:external-graphic
+                                src="url('https://logo.blacksaltit.com.au/RedLogo/05_Png_TransparentBG/HorizontalLogo/BlackSaltIT_Red_Horizontal_TransparentBG.png')"
+                                content-width="33mm"/>
+                    </fo:block>
+                </fo:static-content>
                 <fo:static-content flow-name="xsl-region-after-first">
                     <fo:block font-size="10pt" border-top="1px dashed #000000">
                         <fo:table space-before="10mm">
@@ -86,8 +93,8 @@
                     </fo:block>
                 </fo:static-content>
                 <fo:static-content flow-name="xsl-region-after">
-                    <fo:block font-size="10pt">
-                        <fo:block text-align="left" font-size="7pt" space-before="5mm">
+                    <fo:block font-size="10pt" background-color="#333333" padding="2mm" space-before="5mm" text-align="center">
+                        <fo:block text-align="center" font-size="7pt" color="#ffffff">
                             ABN: 63 660 450 564. Registered Office: 30 Richings Dr, YOUNGTOWN, TAS, 7249, Australia.
                         </fo:block>
                     </fo:block>
@@ -278,7 +285,7 @@
                                                 <fo:table-cell padding="1pt">
                                                     <fo:block>
                                                         <xsl:choose>
-                                                            <xsl:when test="../wasActive and position() = 1">
+                                                            <xsl:when test="../wasActive = 'true' and position() = 1">
                                                                 <xsl:value-of select="/Invoice/periodStartDate"/>
                                                             </xsl:when>
                                                             <xsl:otherwise>
@@ -326,31 +333,31 @@
                                         </xsl:if>
                                     </xsl:for-each>
 
-                                    <fo:table-row>
-                                        <fo:table-cell number-columns-spanned="4" padding="1pt">
-                                            <fo:block text-align="right" font-weight="bold" margin-right="5pt">
-                                                <fo:inline-container width="100%">
-                                                    <fo:block-container text-align="right">
-                                                        <fo:block>Asset Total:</fo:block>
-                                                    </fo:block-container>
-                                                </fo:inline-container>
-                                            </fo:block>
-                                        </fo:table-cell>
-                                        <fo:table-cell padding="1pt" border-before-color="black" border-before-style="solid" border-before-width="1px"
-                                                       border-after-color="black"
-                                                       border-after-style="double" border-after-width="3px">
-                                            <fo:block text-align="right" font-weight="bold">
-                                                <fo:inline>$</fo:inline>
-                                                <fo:inline-container width="100%">
-                                                    <fo:block-container text-align="right">
-                                                        <fo:block>
-                                                            <xsl:value-of select="format-number(billingAmount, '#,##0.00')"/>
-                                                        </fo:block>
-                                                    </fo:block-container>
-                                                </fo:inline-container>
-                                            </fo:block>
-                                        </fo:table-cell>
-                                    </fo:table-row>
+<!--                                    <fo:table-row>-->
+<!--                                        <fo:table-cell number-columns-spanned="4" padding="1pt">-->
+<!--                                            <fo:block text-align="right" font-weight="bold" margin-right="5pt">-->
+<!--                                                <fo:inline-container width="100%">-->
+<!--                                                    <fo:block-container text-align="right">-->
+<!--                                                        <fo:block>Asset Total:</fo:block>-->
+<!--                                                    </fo:block-container>-->
+<!--                                                </fo:inline-container>-->
+<!--                                            </fo:block>-->
+<!--                                        </fo:table-cell>-->
+<!--                                        <fo:table-cell padding="1pt" border-before-color="black" border-before-style="solid" border-before-width="1px"-->
+<!--                                                       border-after-color="black"-->
+<!--                                                       border-after-style="double" border-after-width="3px">-->
+<!--                                            <fo:block text-align="right" font-weight="bold">-->
+<!--                                                <fo:inline>$</fo:inline>-->
+<!--                                                <fo:inline-container width="100%">-->
+<!--                                                    <fo:block-container text-align="right">-->
+<!--                                                        <fo:block>-->
+<!--                                                            <xsl:value-of select="format-number(billingAmount, '#,##0.00')"/>-->
+<!--                                                        </fo:block>-->
+<!--                                                    </fo:block-container>-->
+<!--                                                </fo:inline-container>-->
+<!--                                            </fo:block>-->
+<!--                                        </fo:table-cell>-->
+<!--                                    </fo:table-row>-->
                                 </fo:table-body>
                             </fo:table>
                         </xsl:for-each>

@@ -7,7 +7,10 @@ const ddbClient: DynamoDBClient = new DynamoDBClient({region: process.env.AWS_RE
 const TABLE_NAME: string = process.env.DYNAMODB_TABLE!;
 
 export const activateAsset = async (pathParameters: string[], activate: boolean, body: any): Promise<APIGatewayProxyResult> => {
-    body = JSON.parse(body);
+    // console.log(1);
+    // console.log(body);
+    // body = JSON.parse(body);
+    // console.log(2);
     const tenantId = pathParameters[0];
     const siteId = pathParameters[2];
     const assetId = pathParameters[4];

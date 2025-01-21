@@ -12,6 +12,7 @@ import {Asset, InvoiceEvent, Rate, Site} from '../models/model';
 import {AuthService} from '../services/auth-service';
 import {SiteAssetService} from '../services/site-asset-service';
 import {TileComponent} from '../tile.component';
+import {ConfirmDialogComponent} from './confirm-dialog';
 import {InvoiceEventDialogComponent} from './invoice-event-component';
 
 @Component({
@@ -30,13 +31,15 @@ import {InvoiceEventDialogComponent} from './invoice-event-component';
   template: `
     <div class="d-flex align-items-start v-tabs-panel">
       <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-        <button class="nav-link active" id="v-pills-chart-tab" data-bs-toggle="pill" data-bs-target="#v-pills-chart" type="button role=tab" aria-controls="v-pills-radius" aria-selected="false">Chart</button>
-        <button class="nav-link" id="v-pills-interface-tab" data-bs-toggle="pill" data-bs-target="#v-pills-interface" type="button role=tab" aria-controls="v-pills-interface" aria-selected="false" (click)="runCommand('interface')">Interfaces</button>
-        <button class="nav-link" id="v-pills-route-tab" data-bs-toggle="pill" data-bs-target="#v-pills-route" type="button role=tab" aria-controls="v-pills-route" aria-selected="false" (click)="runCommand('route_table')">Route Table</button>
-        <button class="nav-link" id="v-pills-arp-tab" data-bs-toggle="pill" data-bs-target="#v-pills-arp" type="button role=tab" aria-controls="v-pills-arp" aria-selected="false" (click)="runCommand('arp_table')">ARP Table</button>
-        <button class="nav-link" id="v-pills-ipaddress-tab" data-bs-toggle="pill" data-bs-target="#v-pills-ipaddress" type="button role=tab" aria-controls="v-pills-ipaddress" aria-selected="false" (click)="runCommand('ip_address')">IP Addresses</button>
-        <button class="nav-link" id="v-pills-firewall-tab" data-bs-toggle="pill" data-bs-target="#v-pills-firewall" type="button role=tab" aria-controls="v-pills-firewall" aria-selected="false" (click)="runCommand('ip_firewall')">Firewall Policy</button>
-        <button class="nav-link" id="v-pills-addresses-tab" data-bs-toggle="pill" data-bs-target="#v-pills-addresses" type="button role=tab" aria-controls="v-pills-addresses" aria-selected="false" (click)="runCommand('ip_firewall_address')">Firewall Addresses</button>
+<!--        @if (asset.hostname.endsWith('mlt6') || asset.hostname.endsWith('m2004')) {-->
+          <button class="nav-link active" id="v-pills-chart-tab" data-bs-toggle="pill" data-bs-target="#v-pills-chart" type="button role=tab" aria-controls="v-pills-radius" aria-selected="false">Chart</button>
+          <button class="nav-link" id="v-pills-interface-tab" data-bs-toggle="pill" data-bs-target="#v-pills-interface" type="button role=tab" aria-controls="v-pills-interface" aria-selected="false" (click)="runCommand('interface')">Interfaces</button>
+          <button class="nav-link" id="v-pills-route-tab" data-bs-toggle="pill" data-bs-target="#v-pills-route" type="button role=tab" aria-controls="v-pills-route" aria-selected="false" (click)="runCommand('route_table')">Route Table</button>
+          <button class="nav-link" id="v-pills-arp-tab" data-bs-toggle="pill" data-bs-target="#v-pills-arp" type="button role=tab" aria-controls="v-pills-arp" aria-selected="false" (click)="runCommand('arp_table')">ARP Table</button>
+          <button class="nav-link" id="v-pills-ipaddress-tab" data-bs-toggle="pill" data-bs-target="#v-pills-ipaddress" type="button role=tab" aria-controls="v-pills-ipaddress" aria-selected="false" (click)="runCommand('ip_address')">IP Addresses</button>
+          <button class="nav-link" id="v-pills-firewall-tab" data-bs-toggle="pill" data-bs-target="#v-pills-firewall" type="button role=tab" aria-controls="v-pills-firewall" aria-selected="false" (click)="runCommand('ip_firewall')">Firewall Policy</button>
+          <button class="nav-link" id="v-pills-addresses-tab" data-bs-toggle="pill" data-bs-target="#v-pills-addresses" type="button role=tab" aria-controls="v-pills-addresses" aria-selected="false" (click)="runCommand('ip_firewall_address')">Firewall Addresses</button>
+<!--        }-->
         <button class="nav-link" id="v-pills-action-tab" data-bs-toggle="pill" data-bs-target="#v-pills-action" type="button role=tab" aria-controls="v-pills-action" aria-selected="true">Router Commands</button>
       </div>
       <div class="tab-content" id="v_pills-tabContent">
@@ -79,11 +82,17 @@ import {InvoiceEventDialogComponent} from './invoice-event-component';
         </div>
         <div class="tab-pane fade" id="v-pills-action" role="tabpanel" aria-labelledby="v-pills-addresses-tab">
           <div class="tile-wrapper">
+            <app-tile buttonText="Reboot" [action]="reboot" message="Takes approx 1-2 minutes"/>
             @if (authService.isAdmin$ | async) {
-              <app-tile buttonText="Load Certs - Step 1" [action]="updateCert" message="Must be complete prior to 2 & 3"/>
-              <app-tile buttonText="Commission - Step 2" [action]="commissioncred" message="Load Credentials"/>
-              <app-tile buttonText="Commission - Step 3" [action]="snmpupdate" message="Update SNMP"/>
-              <app-tile buttonText="Commission - Step 4" [action]="commission" message="Monitoring - (Post Install Only)"/>
+              @if (asset.hostname.endsWith('mlt6') || asset.hostname.endsWith('mcac')) {
+                <app-tile buttonText="Load Certs - Step 1" [action]="updateCert" message="Must be complete prior to 2 & 3"/>
+                <app-tile buttonText="Commission - Step 2" [action]="commissioncred" message="Load Credentials"/>
+                <app-tile buttonText="Commission - Step 3" [action]="snmpupdate" message="Update SNMP"/>
+                <app-tile buttonText="Commission - Step 4" [action]="commission" message="Monitoring - (Post Install Only)"/>
+                <app-tile buttonText="Update TZ" [action]="tzupdate" message="Australia/Hobart"/>
+                <app-tile buttonText="Reset USB" [action]="resetUSB" message="approx 1min"/>
+                <app-tile buttonText="Add Wifi" [action]="addWifi" message="Configure CAPsMAN"/>
+              }
               <app-tile buttonText="Activate Billing" *ngIf="!asset.active" [action]="openActivateInvoiceEventDialog"/>
               <app-tile buttonText="Deactivate Billing" *ngIf="asset.active" [action]="openDectivateInvoiceEventDialog"/>
             }
@@ -207,14 +216,45 @@ export class LiveToolsComponent implements OnChanges, OnInit {
 
 
   snmpupdate = () => {
-    this.siteAssetService.updateRouterSNMP(this.site.id, this.asset.id).subscribe(response => {
+    this.siteAssetService.updateRouterSNMP(this.site.id, this.asset.id).subscribe(response => {});
+  }
 
-    });
+  tzupdate = () => {
+    this.siteAssetService.updateRouterTZ(this.site.id, this.asset.id).subscribe(response => {});
+  }
+
+  resetUSB = () => {
+    this.siteAssetService.resetUSB(this.site.id, this.asset.id).subscribe(response => {});
+  }
+
+  reboot = () => {
+
+      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+        width: '300px',
+        data: {
+          message: 'Are you sure you want to reboot this router?'
+        }
+      });
+
+      dialogRef.afterClosed().subscribe(result => {
+        if (result) {
+          this.siteAssetService.reboot(this.site.id, this.asset.id).subscribe(response => {});
+        } else {
+
+        }
+      });
+
+
+
   }
 
   updateCert = () => {
     this.siteAssetService.updateCertificate(this.site.id, this.asset.id).subscribe(response => {
     });
+  }
+
+  addWifi = () => {
+    this.siteAssetService.addWifi(this.site.id, this.asset.id, {subnet: '10.23.5.240/28', vlan: 50}).subscribe(response => {});
   }
 
   openActivateInvoiceEventDialog = () => {

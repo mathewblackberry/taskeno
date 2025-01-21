@@ -12,8 +12,8 @@ export class SiteAssetService {
   // private portalUrl = 'https://vpce-04fe1db0fe67d8e08-0as7hwth.execute-api.ap-southeast-2.vpce.amazonaws.com/prod/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
   private portalUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
   // private portalUrl = 'https://api.nms.blacksaltit.com.au/manager/986922ea-0eb2-4ca4-ab88-904021866c3b';
-  // private toolUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
-  private toolUrl = 'https://vpce-04fe1db0fe67d8e08-0as7hwth.execute-api.ap-southeast-2.vpce.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
+  private toolUrl = 'https://j8gvyebg6g.execute-api.ap-southeast-2.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
+  // private toolUrl = 'https://vpce-04fe1db0fe67d8e08-0as7hwth.execute-api.ap-southeast-2.vpce.amazonaws.com/prod/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
   // private toolUrl = 'https://api.nms.blacksaltit.com.au/controller/986922ea-0eb2-4ca4-ab88-904021866c3b/site';
 
   constructor(private http: HttpClient, private toastService: ToastService) {
@@ -37,16 +37,13 @@ export class SiteAssetService {
     return this.http.get<Rate[]>(`${this.portalUrl}/rate`);
   }
 
-  updateRate(rate: Rate): Observable<Rate[]>{
+  updateRate(rate: Rate): Observable<Rate[]> {
     return this.http.put<Rate[]>(`${this.portalUrl}/rate/${rate.id}`, rate);
   }
 
-  addRate(rate: Rate): Observable<Rate[]>{
+  addRate(rate: Rate): Observable<Rate[]> {
     return this.http.post<Rate[]>(`${this.portalUrl}/rate`, rate);
   }
-
-
-
 
   updateAsset(siteId: string, assetId: string, asset: Asset): Observable<Asset[]> {
     const assetUrl = `${this.portalUrl}/site/${siteId}/asset/${assetId}`;
@@ -75,7 +72,6 @@ export class SiteAssetService {
     return this.http.put(`${this.toolUrl}/${siteId}/asset/${assetId}/csr`, {});
   }
 
-
   activateRouter(siteId: string, assetId: string, invoiceEvent: InvoiceEvent): Observable<any> {
     return this.http.put(`${this.portalUrl}/site/${siteId}/activateasset/${assetId}`, invoiceEvent);
   }
@@ -96,6 +92,21 @@ export class SiteAssetService {
     return this.http.get(`${this.portalUrl}/site/${siteId}/snmpupdate/${assetId}`, {});
   }
 
+  updateRouterTZ(siteId: string, assetId: string): Observable<any> {
+    return this.http.get(`${this.portalUrl}/site/${siteId}/updatetz/${assetId}`, {});
+  }
+
+  resetUSB(siteId: string, assetId: string): Observable<any> {
+    return this.http.get(`${this.portalUrl}/site/${siteId}/resetusb/${assetId}`, {});
+  }
+
+  reboot(siteId: string, assetId: string): Observable<any> {
+    return this.http.get(`${this.portalUrl}/site/${siteId}/reboot/${assetId}`, {});
+  }
+
+  resetUSBByHost(hostname: string): Observable<any> {
+    return this.http.get(`${this.portalUrl}/resetusb/${hostname}`, {});
+  }
 
   getComments(assetId: string): Observable<Comment[]> {
     return this.http.get<Comment[]>(`${this.portalUrl}/asset/${assetId}/comment`);
@@ -117,19 +128,23 @@ export class SiteAssetService {
     return this.http.delete(`${this.portalUrl}/asset/${assetId}/comment/${commentId}`);
   }
 
-  generateNewInvoice(invoiceData: any): Observable<any>{
+  addWifi(siteId: string , assetId: string, data: any): Observable<any> {
+    return this.http.post(`${this.portalUrl}/site/${siteId}/wifi/${assetId}`, data);
+  }
+
+  generateNewInvoice(invoiceData: any): Observable<any> {
     return this.http.post(`${this.portalUrl}/invoice`, invoiceData)
   }
 
-  getGlance(): Observable<{glance: Glance}> {
-    return this.http.get<{glance: Glance}>(`${this.portalUrl}/monitor`);
+  getGlance(): Observable<{ glance: Glance, hash: string | null, lastRun: string | null, lastUpdate: string | null }> {
+    return this.http.get<{ glance: Glance, hash: string | null, lastRun: string | null, lastUpdate: string | null }>(`${this.portalUrl}/monitor`);
   }
 
   flushCache(): Observable<any> {
     return this.http.get(`${this.portalUrl}/flushcache`);
   }
 
-  addModem(serialNumber: string, hostname: string, siteId: string): Observable<any>{
+  addModem(serialNumber: string, hostname: string, siteId: string): Observable<any> {
     return this.http.post<any>(`${this.portalUrl}/site/${siteId}/newmodem`, {serialNumber, hostname});
   }
 

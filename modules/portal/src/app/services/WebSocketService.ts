@@ -1,6 +1,6 @@
 import {Injectable} from '@angular/core';
 import {fetchAuthSession} from "aws-amplify/auth";
-import {from} from 'rxjs';
+import {BehaviorSubject, from, Observable} from 'rxjs';
 import {catchError, switchMap} from 'rxjs/operators';
 import {ObservableWrapper} from "../wrapper/observable_wrapper";
 
@@ -15,10 +15,15 @@ export class WebSocketService {
   public url: string;
 
   public _hash$: ObservableWrapper<string> = new ObservableWrapper<string>();
+  public _lastRun$: ObservableWrapper<string> = new ObservableWrapper<string>();
+  public _lastUpdate$: ObservableWrapper<string> = new ObservableWrapper<string>();
+  private connectionStatus: BehaviorSubject<string> = new BehaviorSubject('Disconnected');
 
+  get status(): Observable<string> {
+    return this.connectionStatus.asObservable();
+  }
 
-
-  connect(){
+  connect() {
     console.log(`connecting`);
     return from(fetchAuthSession()).pipe(switchMap((session) => {
         console.log(session);
@@ -33,26 +38,34 @@ export class WebSocketService {
         this.webSocket.onopen = () => {
           this.reconnectAttempts = 0;
           console.log('WebSocket connection opened');
+          this.connectionStatus.next('Connected');
         };
 
         this.webSocket.onmessage = (event) => {
           console.log(event);
-          if(event.data.startsWith('{')) {
-            this._hash$.value = JSON.parse(event.data).hash;
+          if (event.data.startsWith('{')) {
+            const data: any = JSON.parse(event.data);
+            this._hash$.value = data.hash;
+            this._lastRun$.value = data.lastRun;
+            const lastUpdate: string | null = data.lastUpdate;
+            if (lastUpdate)
+              this._lastUpdate$.value = lastUpdate;
             // console.log(JSON.parse(event.data));
           }
         };
 
         this.webSocket.onclose = (event) => {
-          if(!this.manuallyClosed){
+          if (!this.manuallyClosed) {
             console.log('Attempting to reconnect');
             this.reconnect();
           }
           console.log('Connection closed', event);
+          this.connectionStatus.next('Disconnected');
         };
 
         this.webSocket.onerror = (event) => {
           console.error('WebSocket Error', event);
+          this.connectionStatus.next('Error');
         };
 
         return from([true]); // Return success observable or other actions if needed
@@ -63,8 +76,6 @@ export class WebSocketService {
       })
     );
   }
-
-
 
   private reconnect(): void {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {

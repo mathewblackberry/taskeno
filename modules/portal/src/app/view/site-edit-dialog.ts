@@ -43,6 +43,7 @@ export class SiteEditDialogComponent implements OnInit {
       email: [this.data?.email || '', [Validators.email]],
       longitude: [this.data?.longitude || ''],
       latitude: [this.data?.latitude || ''],
+      wifiuplinkPSK: [this.data?.wifiuplinkPSK || ''],
       active: [this.data?.active || false, Validators.required]
     });
   }

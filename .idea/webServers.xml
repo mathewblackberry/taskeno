@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="dc37a76d-9680-4e42-b7f2-630ceea9f7e4" name="taskeno.nms.blacksaltit.com.au" url="http://portal.nms.blacksaltit.com.au">
+        <fileTransfer accessType="SFTP" host="taskeno.nms.blacksaltit.com.au" port="22" sshConfigId="8b14914e-2835-450d-9714-82e7ddb60ce2" sshConfig="Tas Keno NMS" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

@@ -1,4 +1,5 @@
 import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
+import {PutObjectCommand, S3, S3Client} from '@aws-sdk/client-s3';
 import {SendMessageCommand, SQSClient} from '@aws-sdk/client-sqs';
 import {DynamoDBDocumentClient, GetCommand, QueryCommand} from '@aws-sdk/lib-dynamodb';
 import {APIGatewayProxyResult} from 'aws-lambda';
@@ -9,6 +10,8 @@ import {Asset, Site, Tenant} from './model';
 const ddbClient = new DynamoDBClient({region: process.env.AWS_REGION});
 const docClient = DynamoDBDocumentClient.from(ddbClient);
 const queueUrl = process.env.INVOICE_SQS
+const s3: S3Client = new S3Client({region: process.env.AWS_REGION});
+const S3_CONFIG_BUCKET = process.env.S3_CONFIG_BUCKET!;
 
 export class Rate {
     id: string;
@@ -88,6 +91,9 @@ const formatter = new Intl.DateTimeFormat('en-AU', {
 export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: string, endOfMonth: string, TABLE_NAME: string, invoiceDate: string, overdueIncGST: number): Promise<APIGatewayProxyResult> => {
     let billTotal = 0;
     const details = await createXeroInvoice();
+    // const details = { "invoiceId": "ba161aac-2734-4ab3-ab37-20c47e90db6a", "invoiceNumber": "INV-0025" }
+    console.log(JSON.stringify(details, null, 1));
+
     const tenantParams = {
         TableName: TABLE_NAME,
         Key: {
@@ -111,7 +117,9 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
     };
 
     const sitesResult = await docClient.send(new QueryCommand(sitesParams));
-    const sites = sitesResult.Items as SiteDetails[];
+    let sites = sitesResult.Items as SiteDetails[];
+
+    sites = sites.sort((a, b) => a.name.localeCompare(b.name));
 
     // Step 2: Loop through each site and generate invoices
     const invoices: InvoiceData[] = [];
@@ -126,7 +134,7 @@ export const generateInvoicesForTenant = async (tenantId: string, startOfMonth: 
 
     const invoiceDateAsDate = new Date(invoiceDate);
     let dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + 14);
+    dueDate.setDate(dueDate.getDate() + 30);
 
     const totalExGst = (Math.round(billTotal * 100) / 100);
     const gst = (Math.round(totalExGst * 0.1 * 100) / 100);
@@ -239,6 +247,10 @@ const generateInvoiceForSite = async (
         }
     }
 
+    assetsWithBilling.sort((a, b) => {
+        return a.asset.hostname.localeCompare(b.asset.hostname);
+    });
+
     // Combine into Invoice Data
     return {
         site: siteDetails.data,
@@ -336,10 +348,11 @@ function removeUndefinedFields(obj: any): any {
 const sendXmlToSQS = async (xml: string, xeroInvoiceId: string, invoiceNumber: string): Promise<void> => {
     const params = {
         QueueUrl: queueUrl,
-        MessageBody: JSON.stringify({xml, xeroInvoiceId}),
+        MessageBody: JSON.stringify({s3: `invoice/${invoiceNumber}`, xeroInvoiceId}),
         MessageGroupId: invoiceNumber
     };
 
+    await uploadXmlToS3(xml, invoiceNumber);
     try {
         const sqsClient: SQSClient = new SQSClient({region: process.env.AWS_REGION});
         const data = await sqsClient.send(new SendMessageCommand(params));
@@ -348,3 +361,30 @@ const sendXmlToSQS = async (xml: string, xeroInvoiceId: string, invoiceNumber: s
         console.error('Error sending message to SQS:', err);
     }
 };
+
+const uploadXmlToS3 = async (
+    xmlString: string,
+    invoiceNumber: string
+): Promise<void> => {
+    // Initialize the S3 client
+
+    // Set up the parameters for the PutObjectCommand
+    const params = {
+        Bucket: S3_CONFIG_BUCKET,
+        Key: `invoice/${invoiceNumber}`,
+        Body: xmlString,
+        ContentType: "application/xml"
+    };
+
+    try {
+        // Create the PutObjectCommand with the parameters
+        const command = new PutObjectCommand(params);
+        // Send the command to S3
+        await s3.send(command);
+
+        console.log(`Successfully uploaded invoice/${invoiceNumber} to bucket ${S3_CONFIG_BUCKET}`);
+    } catch (error) {
+        console.error("Error uploading XML to S3:", error);
+        throw error;
+    }
+}

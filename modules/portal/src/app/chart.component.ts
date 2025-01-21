@@ -115,26 +115,20 @@ export class ChartComponent implements OnInit, OnChanges {
     { value: 'wan', label: 'WAN' },
     { value: 'core', label: 'Core' },
     { value: 'south', label: 'South' },
-    { value: 'north', label: 'North' },
-    { value: 'lo', label: 'Loopback' }
-  ];
+    { value: 'north', label: 'North' }];
   ports_dc2 = [
-    {value: 'fwan', label: 'WAN'},
+    {value: 'wan', label: 'WAN'},
     {value: 'core', label: 'Core'},
     {value: 'south', label: 'South'},
-    {value: 'north', label: 'North'},
-    {value: 'lo', label: 'Loopback'}
-  ];
+    {value: 'north', label: 'North'}];
 
   ports_venue = [
     { value: 'nbn', label: 'NBN' },
-    { value: 'lte', label: 'Wireless' },
-    { value: 'lo', label: 'Loopback' },
+    { value: 'lte', label: 'Wireless' }
   ];
   ports = [
     { value: 'nbn', label: 'NBN' },
-    { value: 'lte', label: 'Wireless' },
-    { value: 'lo', label: 'Loopback' },
+    { value: 'lte', label: 'Wireless' }
   ];
 
 

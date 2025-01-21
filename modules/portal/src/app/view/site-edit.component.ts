@@ -78,6 +78,12 @@ import { CommonModule } from '@angular/common';
         <mat-error *ngIf="siteForm.get('longitude')?.invalid">{{ getErrorMessage('longitude') }}</mat-error>
       </mat-form-field>
 
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>WiFi Uplink PSK</mat-label>
+        <input matInput formControlName="wifiuplinkPSK">
+        <mat-error *ngIf="siteForm.get('wifiuplinkPSK')?.invalid">{{ getErrorMessage('wifiuplinkPSK') }}</mat-error>
+      </mat-form-field>
+
       <mat-checkbox formControlName="active">Active</mat-checkbox>
 
     </form>

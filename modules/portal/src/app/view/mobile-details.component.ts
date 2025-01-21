@@ -116,8 +116,11 @@ import {ArrayEditorComponent} from './ip-list-component';
 })
 export class MobileDetailsComponent extends EditableBaseComponent implements OnInit, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
-    this.extractIPs(changes['mobileDetailsForm']?.currentValue?.value.framedRoutes);
+    if (changes['mobileDetailsForm']) {
+      this.extractIPs(changes['mobileDetailsForm']?.currentValue?.value.framedRoutes);
+    }
   }
+
   @Input() displayedColumns: string[] = ['label', 'value'];
   @Input({required: true}) asset: Asset;
   @Input({required: true}) mobileDetailsForm: FormGroup;
@@ -138,13 +141,14 @@ export class MobileDetailsComponent extends EditableBaseComponent implements OnI
         {label: 'PUK', field: 'PUK', value: this.mobileDetailsForm.get('PUK')?.value},
         {label: 'Framed IP', field: 'framedIP', value: this.mobileDetailsForm.get('framedIP')?.value}
       ];
-      if(this.mobileDetailsForm.get('framedRoutes')?.value){
+      if (this.mobileDetailsForm.get('framedRoutes')?.value) {
         this.extractIPs(this.mobileDetailsForm.get('framedRoutes')?.value);
       }
     }
   }
 
   private extractIPs(input: string[]): void {
+    // console.log(input);
     this.framedRoutes = input.map(subnet => subnet.split('/')[0].trim());
   }
 
@@ -184,6 +188,5 @@ export class MobileDetailsComponent extends EditableBaseComponent implements OnI
     }
     document.body.removeChild(textarea);
   }
-
 
 }

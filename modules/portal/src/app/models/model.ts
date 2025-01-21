@@ -27,6 +27,7 @@ export class Site {
   latitude: string;
   longitude: string;
   active: boolean;
+  wifiuplinkPSK?: string;
 }
 
 export class Asset {

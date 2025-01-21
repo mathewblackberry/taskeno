@@ -1,9 +1,7 @@
-import {SQSEvent, SQSHandler} from 'aws-lambda';
-import {PutObjectCommand, S3} from "@aws-sdk/client-s3";
+import {ApiGatewayManagementApi, PostToConnectionCommand} from "@aws-sdk/client-apigatewaymanagementapi";
 import {DeleteItemCommand, DynamoDBClient} from "@aws-sdk/client-dynamodb";
 import {QueryCommand, QueryCommandInput, QueryCommandOutput} from "@aws-sdk/lib-dynamodb";
-import {ApiGatewayManagementApi, PostToConnectionCommand} from "@aws-sdk/client-apigatewaymanagementapi";
-
+import {SQSEvent, SQSHandler} from 'aws-lambda';
 
 const ddbClient: DynamoDBClient = new DynamoDBClient({region: process.env.AWS_REGION});
 
@@ -26,9 +24,6 @@ export const lambdaHandler: SQSHandler = async (event: SQSEvent) => {
         for (const record of event.Records) {
             const message: string = record.body;
             const body = (JSON.parse(message));
-
-            console.log(body);
-
             await sendUpdate(body, tenantId);
         }
         return;
@@ -40,46 +35,37 @@ export const lambdaHandler: SQSHandler = async (event: SQSEvent) => {
     }
 };
 
-const sendUpdate = async (body: any, tenantId: string) =>{
-    console.log(tenantId);
+const sendUpdate = async (body: any, tenantId: string) => {
     const dbName: string | undefined = process.env.CONNECTION_TABLE;
-    console.log(dbName);
     const params: QueryCommandInput = {
         TableName: dbName,
         KeyConditionExpression: 'tenantId = :pkValue',
         ExpressionAttributeValues: {
-            ':pkValue': tenantId,
-        },
+            ':pkValue': tenantId
+        }
     };
-    console.log(params);
-    console.log('pre');
-    console.log('postpre');
-    try{
+
+    try {
         const results: QueryCommandOutput = await ddbClient.send(new QueryCommand(params));
-        console.log('post')
-        console.log(`Results: ${JSON.stringify(results,null,2)}`);
         if (results.Items)
             for (const item of results.Items) {
                 try {
-                    console.log(item);
                     await apiGatewayClient.send(new PostToConnectionCommand({
                         ConnectionId: item.connectionId,
                         Data: JSON.stringify(body)
                     }));
                 } catch (error: any) {
-                    console.error(`Error sending message TO ${item.connectionId}:`, JSON.stringify(error,null,2));
-                    console.log(error.name);
-                    console.log(JSON.stringify(error, null, 2));
+                    console.error(`Error sending message TO ${item.connectionId}:`, JSON.stringify(error, null, 2));
                     if (error.name === "GoneException") { // Check if the connection ID is no longer valid
                         console.log(`Deleting stale connection ID: ${item.connectionId}`);
-                        deleteConnectionId(item.connectionId, tenantId!,  dbName!);
+                        deleteConnectionId(item.connectionId, tenantId!, dbName!);
                     } else {
                         console.error("Error sending message:", error);
                     }
                     // Handle disconnections or other errors here, e.g., delete stale connection IDs from DynamoDB
                 }
             }
-    }catch(error: any){
+    } catch (error: any) {
         console.log(error);
     }
 
@@ -89,8 +75,8 @@ function deleteConnectionId(connectionId: string, tenantId: string, dbName: stri
     const deleteParams = {
         TableName: dbName,
         Key: {
-            "connectionId": { S: connectionId },
-            "tenantId": {S: tenantId }
+            "connectionId": {S: connectionId},
+            "tenantId": {S: tenantId}
         }
     };
     try {

@@ -104,7 +104,7 @@ export class SiteListComponent implements OnInit {
           if (site.name == undefined) console.log(site);
         });
         this.sites = sites.sort((a: Site, b: Site) => {
-          console.log(a.name);
+          // console.log(a.name);
           return a.name.localeCompare(b.name)});
         this.filteredSites = this.siteControl.valueChanges.pipe(startWith(''), map(value => typeof value === 'string' ? value : value?.name), map(name => name ? this._filterSites(name) : this.sites.slice()));
         this.updateFilteredSites();
@@ -148,9 +148,9 @@ export class SiteListComponent implements OnInit {
     this.selectedSite = site;
     this.updateTooltipValues();
     this.siteAssetService.getAssets(site.id).subscribe(assets => {
-      this.assets = assets;
+      this.assets = assets.sort((a, b) => b.hostname.localeCompare(a.hostname));
       if (assets)
-        this.onSelectAsset(assets[0])
+        this.onSelectAsset(this.assets[0])
       else {
         this.selectedAsset = null;
         this.comments = [];
@@ -230,7 +230,7 @@ export class SiteListComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       latitude: [''],
       longitude: [''],
-
+      wifiuplinkPSK: [''],
       active: [false, Validators.required] // Default to false, with a required validator
     });
   }
@@ -249,6 +249,7 @@ export class SiteListComponent implements OnInit {
       email: site.email,
       latitude: site.latitude,
       longitude: site.longitude,
+      wifiuplinkPSK: site.wifiuplinkPSK,
       active: site.active
     });
   }
@@ -525,6 +526,10 @@ export class SiteListComponent implements OnInit {
         });
       }
     });
+  }
+
+  clearText(){
+    this.siteControl.setValue('');
   }
 
 }

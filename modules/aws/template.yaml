@@ -990,6 +990,7 @@ Resources:
       Environment:
         Variables:
           INVOICE_BUCKET: !Ref S3InvoiceBucket
+          S3_CONFIG_BUCKET: !Ref S3ConfigBucket
       Role: !GetAtt RoleSQSInvoiceProcessorRole.Arn
       VpcConfig:
         SubnetIds:
@@ -1043,6 +1044,7 @@ Resources:
                   - s3:*
                 Resource:
                   - !Sub arn:aws:s3:::${S3InvoiceBucket}/*
+                  - !Sub arn:aws:s3:::${S3ConfigBucket}/*
         - PolicyName: LambdaSecretsManagerPolicy
           PolicyDocument:
             Version: "2012-10-17"
@@ -1185,6 +1187,14 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                 Resource: !Sub arn:aws:s3:::${S3ConfigBucket}/*
+        - PolicyName: SESSend
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                Resource: '*'
 
 
     # Lambda Function
@@ -1232,6 +1242,7 @@ Resources:
           - "@aws-sdk/client-route-53"
           - "@aws-sdk/client-sqs"
           - "@aws-sdk/client-apigatewaymanagementapi"
+          - "@aws-sdk/client-ses"
         EntryPoints:
           - monitor.ts
 

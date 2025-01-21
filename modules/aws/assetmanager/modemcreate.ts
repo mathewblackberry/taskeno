@@ -68,7 +68,7 @@ export const createAsset = async (
         FNN: '',
         POI: '',
         routerDetails: routerDetails,
-        active: true
+        active: false
     };
 
     // Prepare the item to save to DynamoDB

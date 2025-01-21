@@ -36,6 +36,7 @@
     "@aws-sdk/lib-dynamodb": "^3.582.0",
     "@aws-sdk/util-dynamodb": "^3.582.0",
     "@aws-sdk/client-apigatewaymanagementapi": "^3.582.0",
+    "@aws-sdk/client-ses": "^3.582.0",
     "@types/aws-lambda": "^8.10.138",
     "@types/jest": "^29.4.0",
     "@types/jsonwebtoken": "^9.0.6",

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="taskeno.nms.blacksaltit.com.au" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+    <option name="confirmBeforeUploading" value="false" />
+    <serverData>
+      <paths name="taskeno.nms.blacksaltit.com.au">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/var/www/html" local="$PROJECT_DIR$/modules/portal/dist/portal/browser" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

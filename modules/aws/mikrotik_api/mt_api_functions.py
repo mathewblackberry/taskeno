@@ -142,3 +142,80 @@ def complete_get(path, cert, loopback, router_password):
             'statusCode': 500,
             'body': json.dumps({'message': error_message}), 'headers': {'Access-Control-Allow-Origin': '*'}
         }
+
+
+def complete_get(path, cert, loopback, router_password):
+    router_ip = loopback  # os.environ.get('ROUTER_IP')
+    router_user = os.environ.get('ROUTER_USER')
+    # router_password = os.environ.get('ROUTER_PASSWORD')
+
+
+    if not router_ip or not router_user or not router_password:
+        return {'statusCode': 400, 'body': json.dumps({'message': 'Router credentials are not available'}), 'headers': {'Access-Control-Allow-Origin': '*'}}
+
+    try:
+        response = requests.get(
+            f'https://{router_ip}/rest{path}',
+            auth=HTTPBasicAuth(router_user, router_password),
+            verify=cert,
+            timeout=10
+        )
+
+        # Check for HTTP status errors
+        response.raise_for_status()
+
+        # Try to parse the JSON response
+        data = response.json()
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'data': data}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except requests.exceptions.HTTPError as e:
+        error_message = f"HTTP error: {e.response.status_code} {e.response.reason}"
+        print(error_message)
+        return {
+            'statusCode': e.response.status_code,
+            'body': json.dumps({'message': error_message}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except requests.exceptions.ConnectionError as e:
+        error_message = f"Connection error: {str(e)}"
+        print(error_message)
+        return {
+            'statusCode': 404,
+            'body': json.dumps({'message': 'Could not connect to device'}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except requests.exceptions.Timeout as e:
+        error_message = f"Request timeout: {str(e)}"
+        print(error_message)
+        return {
+            'statusCode': 504,
+            'body': json.dumps({'message': error_message}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except requests.exceptions.RequestException as e:
+        error_message = f"Request exception: {str(e)}"
+        print(error_message)
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'message': error_message}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except ValueError as e:
+        error_message = f"JSON decode error: {str(e)}"
+        print(error_message)
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'message': 'Failed to decode JSON response.'}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }
+
+    except Exception as e:
+        error_message = f"An unexpected error occurred: {str(e)}"
+        print(error_message)
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'message': error_message}), 'headers': {'Access-Control-Allow-Origin': '*'}
+        }

@@ -28,6 +28,7 @@ import org.xml.sax.SAXException;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -78,10 +79,19 @@ public class InvoiceGenerator implements RequestHandler<SQSEvent, Void> {
         }
         for (SQSEvent.SQSMessage msg : event.getRecords()) {
             String bucketName = System.getenv("INVOICE_BUCKET");
+            String configBucket = System.getenv("S3_CONFIG_BUCKET");
             System.out.println(bucketName);
             String key = "config/xslt/invoice.xsl";
             String messageGroupId = msg.getAttributes().get("MessageGroupId");
             String key2 = "complete/" + messageGroupId + ".pdf";
+
+            String xmlKey = "invoice/" + messageGroupId;
+            GetObjectRequest xmlObjectRequest = GetObjectRequest.builder()
+                    .bucket(configBucket)
+                    .key(xmlKey)
+                    .build();
+
+
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
@@ -97,7 +107,13 @@ public class InvoiceGenerator implements RequestHandler<SQSEvent, Void> {
             }
 
             // Extract the values of the "xml" and "xeroInvoiceId" parameters
-            String xml = jsonNode.get("xml").asText();
+//            String xml = jsonNode.get("xml").asText();
+            ResponseBytes<?> responseBytes = s3.getObject(xmlObjectRequest, ResponseTransformer.toBytes());
+
+            // Convert bytes to string
+            String xml = responseBytes.asUtf8String();
+            System.out.println(xml);
+
             String xeroInvoiceId = jsonNode.get("xeroInvoiceId").asText();
 
             ResponseBytes<GetObjectResponse> objectBytes = s3.getObjectAsBytes(getObjectRequest);

@@ -33,6 +33,7 @@ import {CredentialsDetailsComponent} from './credentials.component';
     MatTabsModule
   ],
   template: `
+
     <form [formGroup]="routerDetailsForm">
       <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 no-header">
         <!-- Label Column -->
@@ -73,13 +74,17 @@ import {CredentialsDetailsComponent} from './credentials.component';
         <tr mat-header-row *matHeaderRowDef="displayedColumns" class="label-column"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="value-column"></tr>
       </table>
-      <h3 class="mat-title-medium px-2 py-4">Credentials</h3>
+      <h3 class="mat-title-medium px-2 pt-4">Credentials</h3>
+      <span class="px-2"><strong>Hostname:</strong> {{hostname}}</span>
+      <button mat-icon-button (click)="copyText(hostname)">
+        <mat-icon>content_copy</mat-icon>
+      </button>
       <mat-tab-group>
 
         @if (routerDetailsForm.get('credentials')) {
           @if (defaultCredentials) {
             <mat-tab label="Active">
-              <app-credentials-details [formGroup]="routerDetailsForm" [isEditMode]="isEditMode"/>
+              <app-credentials-details [formGroup]="routerDetailsForm" [isEditMode]="isEditMode" [hostname]="hostname"/>
             </mat-tab>
             <mat-tab label="Default">
               <app-default-credentials-detail [credentialFormGroup]="defaultCredentials" [isEditMode]="isEditMode"/>
@@ -112,11 +117,11 @@ export class RouterDetailsComponent extends EditableBaseComponent implements OnI
   @Input({required: true}) site: Site;
   @Input({required: true}) asset: Asset;
   @Input({required: true}) routerDetailsForm: FormGroup;
+  @Input({required: true}) hostname: string;
   @Input() isEditMode: boolean = false;
   config: string | null;
 
   authService: AuthService = inject(AuthService);
-
   getConfig(site: Site, asset: Asset) {
     this.siteAssetService.getAssetConfig(site.id, asset.id).subscribe(config => {
       this.config = config.body;
@@ -145,5 +150,35 @@ export class RouterDetailsComponent extends EditableBaseComponent implements OnI
     if (this.routerDetailsForm.valid)
       console.log('Saving asset:', JSON.stringify(this.routerDetailsForm.value, null, 2));
   }
+  copyText(text: string) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+          console.log('Password copied to clipboard');
+        },
+        err => {
+          console.error('Failed to copy password: ', err);
+        }
+      );
+    } else {
+      this.fallbackCopyText(text);
+    }
+  }
 
+  fallbackCopyText(text: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';  // Prevent scrolling to bottom of page in MS Edge.
+    textarea.style.left = '-9999px'; // Move textarea out of the viewport
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      const successful = document.execCommand('copy');
+      const msg = successful ? 'successful' : 'unsuccessful';
+      console.log(`Fallback: Copying text command was ${msg}`);
+    } catch (err) {
+      console.error('Fallback: Oops, unable to copy', err);
+    }
+    document.body.removeChild(textarea);
+  }
 }

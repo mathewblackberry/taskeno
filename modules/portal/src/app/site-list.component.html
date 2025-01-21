@@ -6,28 +6,27 @@
     <div style="display: flex; gap: 20px">
 
       @if (authService.isAdmin$ | async) {
-    @if (selectedSite) {
-      <button mat-icon-button aria-label="Toggle Site Active" (click)="toggleSiteActive()" [matTooltip]="selectedSite.active ? 'Disable Site' : 'Enable Site'">
-        @if (selectedSite.active) {
-          <mat-icon fontSet="fa" fontIcon="fa-eye-slash" class="fa-duotone" style="font-size: 90%"></mat-icon>
-        } @else {
-          <mat-icon fontSet="fa" fontIcon="fa-eye" class="fa-duotone" style="font-size: 90%"></mat-icon>
+        @if (selectedSite) {
+          <button mat-icon-button aria-label="Toggle Site Active" (click)="toggleSiteActive()" [matTooltip]="selectedSite.active ? 'Disable Site' : 'Enable Site'">
+            @if (selectedSite.active) {
+              <mat-icon fontSet="fa" fontIcon="fa-eye-slash" class="fa-duotone" style="font-size: 90%"></mat-icon>
+            } @else {
+              <mat-icon fontSet="fa" fontIcon="fa-eye" class="fa-duotone" style="font-size: 90%"></mat-icon>
+            }
+          </button>
         }
-      </button>
-    }
 
 
-      <button mat-icon-button type="button" (click)="openInvoiceDialog()" matTooltip="Generate Invoice">
-        <mat-icon fontSet="fa" fontIcon="fa-file-invoice-dollar" class="fa-duotone"></mat-icon>
-      </button>
+        <button mat-icon-button type="button" (click)="openInvoiceDialog()" matTooltip="Generate Invoice">
+          <mat-icon fontSet="fa" fontIcon="fa-file-invoice-dollar" class="fa-duotone"></mat-icon>
+        </button>
 
 
-
-      <button mat-icon-button type="button" (click)="flushCache()" matTooltip="Flush Monitor Cache">
-        <mat-icon fontSet="fa" fontIcon="fa-binary-slash" class="fa-duotone"></mat-icon>
-      </button>
-    }
-  </div>
+        <button mat-icon-button type="button" (click)="flushCache()" matTooltip="Flush Monitor Cache">
+          <mat-icon fontSet="fa" fontIcon="fa-binary-slash" class="fa-duotone"></mat-icon>
+        </button>
+      }
+    </div>
     <span class="logout-button-wrapper">
     <button mat-icon-button aria-label="Sign Out" (click)="authenticator.signOut()">
       <mat-icon fontSet="fa" fontIcon="fa-arrow-up-left-from-circle" class="fa-light">logout</mat-icon>
@@ -55,6 +54,15 @@
             {{ site.name }}
           </mat-option>
         </mat-autocomplete>
+        @if (siteControl.value) {
+          <button
+            mat-icon-button
+            matSuffix
+            aria-label="Clear"
+            (click)="clearText()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
       </mat-form-field>
       @if (fSites.length > 1) {
         <button mat-icon-button (click)="selectNextSite()" [matTooltip]="nextSiteName">
@@ -63,7 +71,6 @@
         <button mat-icon-button (click)="openSiteEditDialog()" matTooltip="Edit Site">
           <mat-icon>edit</mat-icon>
         </button>
-
       }
     </div>
 
@@ -89,10 +96,10 @@
           <mat-icon>save</mat-icon>
         </button>
       }
-<!--      {{ selectedAsset?.hostname }}-->
-<!--      <button mat-icon-button (click)="copyHostname(selectedAsset?.hostname!)">-->
-<!--        <mat-icon>content_copy</mat-icon>-->
-<!--      </button>-->
+      <!--      {{ selectedAsset?.hostname }}-->
+      <!--      <button mat-icon-button (click)="copyHostname(selectedAsset?.hostname!)">-->
+      <!--        <mat-icon>content_copy</mat-icon>-->
+      <!--      </button>-->
       <span class="spacer"></span>
       <button mat-icon-button (click)="toggleEditMode()" class="edit-button">
         @if (isEditMode) {
@@ -105,8 +112,19 @@
   }
   @if (selectedAsset) {
     <div class="details-section">
-
       <mat-tab-group class="full-height">
+        @if (selectedAsset.routerDetails) {
+          <mat-tab>
+            <ng-template mat-tab-label>
+              @if (routerDetailsForm.invalid) {
+                <mat-icon class="tab-icon" color="warn">error</mat-icon>
+              }Router Details
+            </ng-template>
+            @if (selectedAsset.routerDetails) {
+              <app-router-details [isEditMode]=isEditMode [asset]="selectedAsset" [routerDetailsForm]="routerDetailsForm" [site]="selectedSite!" [hostname]="selectedAsset.hostname"/>
+            }
+          </mat-tab>
+        }
         @if (selectedAsset && selectedAsset.routerDetails && selectedAsset.routerDetails.mobileDetails) {
           <mat-tab>
             <ng-template mat-tab-label>
@@ -130,29 +148,18 @@
           </ng-template>
           <app-router-general [isEditMode]=isEditMode [routerGeneralForm]="routerGeneralForm" [asset]="selectedAsset"/>
         </mat-tab>
-        @if (selectedAsset.routerDetails) {
-          <mat-tab>
-            <ng-template mat-tab-label>
-              @if (routerDetailsForm.invalid) {
-                <mat-icon class="tab-icon" color="warn">error</mat-icon>
-              }Router Details
-            </ng-template>
-            @if (selectedAsset.routerDetails) {
-              <app-router-details [isEditMode]=isEditMode [asset]="selectedAsset" [routerDetailsForm]="routerDetailsForm" [site]="selectedSite!"/>
-            }
-          </mat-tab>
-        }
+
 
         @if (selectedAsset.lanSubnets) {
           <mat-tab label="LAN Subnets">
             <app-lan-subnets [isEditMode]=isEditMode [formGroup]="routerGeneralForm" [selectedAsset]="selectedAsset" (update)="updateAsset()"/>
           </mat-tab>
         }
-<!--        @if (pattern.test(selectedAsset.hostname)) {-->
-          <mat-tab label="Live Tools">
-            <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
-          </mat-tab>
-<!--        }-->
+        <!--        @if (pattern.test(selectedAsset.hostname)) {-->
+        <mat-tab label="Live Tools">
+          <app-live-tools [asset]="selectedAsset" [site]="selectedSite!"/>
+        </mat-tab>
+        <!--        }-->
 
         <mat-tab label="Log">
           <ng-container *ngIf="authService.userName$ | async as userName">

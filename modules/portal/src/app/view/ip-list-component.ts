@@ -68,7 +68,7 @@ export class ArrayEditorComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['formGroup']) {
-      console.log('change' + this.formArray.controls.length);
+      // console.log('change' + this.formArray.controls.length);
       if(this.formArray.controls.length === 0) {
         this.addItem();
       }
